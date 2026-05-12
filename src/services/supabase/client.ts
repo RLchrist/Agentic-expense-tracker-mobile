@@ -12,7 +12,7 @@ const MMKVStorage = {
     storage.set(key, value)
   },
   removeItem: (key: string): void => {
-    storage.delete(key)
+    storage.remove(key)
   },
 }
 
