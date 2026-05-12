@@ -1,10 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { Text } from 'react-native'
+import { Text, View } from 'react-native'
 import { COLORS } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
 import AddExpenseScreen from '../screens/expense/AddExpenseScreen'
-import { View } from 'react-native'
+import ExpensesScreen from '../screens/expense/ExpensesScreen'
 
 const Placeholder = (label: string) => () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
@@ -36,7 +36,7 @@ function HomeTabs() {
       />
       <Tab.Screen
         name="Expenses"
-        component={Placeholder('📋 Expenses')}
+        component={ExpensesScreen}
         options={{ tabBarLabel: 'Expenses', tabBarIcon: () => <Text>📋</Text> }}
       />
       <Tab.Screen

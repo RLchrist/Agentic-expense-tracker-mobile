@@ -14,40 +14,53 @@ export default function RegisterScreen({ navigation }: any) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields')
-      return
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match')
-      return
-    }
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters')
-      return
-    }
-    setLoading(true)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
-    })
-    if (error) {
-      Alert.alert('Registration Failed', error.message)
-    } else if (data.user) {
-      // Create profile record
-      await supabase.from('profiles').insert({
+ const handleRegister = async () => {
+  if (!fullName || !email || !password || !confirmPassword) {
+    Alert.alert('Error', 'Please fill in all fields')
+    return
+  }
+  if (password !== confirmPassword) {
+    Alert.alert('Error', 'Passwords do not match')
+    return
+  }
+  if (password.length < 6) {
+    Alert.alert('Error', 'Password must be at least 6 characters')
+    return
+  }
+  setLoading(true)
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName } },
+  })
+  if (error) {
+    Alert.alert('Registration Failed', error.message)
+    setLoading(false)
+    return
+  }
+
+  if (data.user) {
+    // Wait briefly for auth to settle
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({
         id: data.user.id,
         email,
         full_name: fullName,
         currency: 'NPR',
       })
-      Alert.alert('Success', 'Account created! Please sign in.')
-      navigation.navigate('Login')
+
+    if (profileError) {
+      console.error('Profile insert error:', profileError.message)
     }
-    setLoading(false)
+
+    Alert.alert('Success', 'Account created! Please sign in.')
+    navigation.navigate('Login')
   }
+  setLoading(false)
+}
 
   return (
     <KeyboardAvoidingView
