@@ -68,6 +68,11 @@ export const drainQueue = async (): Promise<{ success: number; failed: number }>
       if (!error) {
         dequeue(op.id)
         success++
+      } else if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        // Already synced — remove from queue
+        console.log('Already synced, dequeuing op:', op.id)
+        dequeue(op.id)
+        success++
       } else {
         console.warn('Sync failed for op:', op.id, error.message)
         failed++

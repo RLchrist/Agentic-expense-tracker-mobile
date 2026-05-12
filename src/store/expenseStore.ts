@@ -3,6 +3,10 @@ import { supabase } from '../services/supabase/client'
 import { Expense, Category } from '../types'
 import NetInfo from '@react-native-community/netinfo'
 import { enqueue } from '../services/sync/offlineSync'
+import { createMMKV } from 'react-native-mmkv'
+
+const cacheStorage = createMMKV({ id: 'expense-cache' })
+const CATEGORIES_CACHE_KEY = 'cached_categories'
 
 interface ExpenseState {
   expenses: Expense[]
@@ -35,11 +39,29 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   },
 
   fetchCategories: async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name')
-    if (!error && data) set({ categories: data })
+    // 1. Load from local cache immediately (instant, works offline)
+    try {
+      const cached = cacheStorage.getString(CATEGORIES_CACHE_KEY)
+      if (cached) {
+        const parsed: Category[] = JSON.parse(cached)
+        if (parsed.length > 0) set({ categories: parsed })
+      }
+    } catch {}
+
+    // 2. Try fetching fresh data from Supabase
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name')
+      if (!error && data && data.length > 0) {
+        set({ categories: data })
+        // Update local cache
+        cacheStorage.set(CATEGORIES_CACHE_KEY, JSON.stringify(data))
+      }
+    } catch {
+      // Network unavailable — cached data is already loaded above
+    }
   },
 
 addExpense: async (expense) => {
@@ -51,6 +73,9 @@ addExpense: async (expense) => {
 
   const localId = Math.random().toString(36).slice(2)
   const payload = { ...expense, user_id: user.id, local_id: localId }
+
+  // Look up category for optimistic UI display
+  const category = get().categories.find((c) => c.id === expense.category_id) ?? null
 
   // Check network
   const net = await NetInfo.fetch()
@@ -66,20 +91,48 @@ addExpense: async (expense) => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       is_synced: false,
+      category,
     }
     set((state) => ({ expenses: [tempExpense, ...state.expenses] }))
     return
   }
 
-  // Online — save directly
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert(payload)
-    .select('*, category:categories(*)')
-    .single()
+  // Online — save directly (with fallback to offline queue on network failure)
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert(payload)
+      .select('*, category:categories(*)')
+      .single()
 
-  if (!error && data) {
-    set((state) => ({ expenses: [data, ...state.expenses] }))
+    if (!error && data) {
+      set((state) => ({ expenses: [data, ...state.expenses] }))
+    } else if (error) {
+      console.warn('Insert failed, queuing offline:', error.message)
+      enqueue({ operation: 'INSERT', table: 'expenses', payload })
+      const tempExpense: Expense = {
+        ...payload,
+        id: localId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_synced: false,
+        category,
+      }
+      set((state) => ({ expenses: [tempExpense, ...state.expenses] }))
+    }
+  } catch (e) {
+    // Network request failed — fall back to offline queue
+    console.warn('Network error, queuing offline:', e)
+    enqueue({ operation: 'INSERT', table: 'expenses', payload })
+    const tempExpense: Expense = {
+      ...payload,
+      id: localId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_synced: false,
+      category,
+    }
+    set((state) => ({ expenses: [tempExpense, ...state.expenses] }))
   }
 },
 

@@ -19,13 +19,19 @@ export default function App() {
     )
 
     // Network listener — drain queue when back online
+    let isSyncing = false
     const unsubscribeNet = NetInfo.addEventListener(async (state) => {
-      if (state.isConnected && state.isInternetReachable) {
+      if (state.isConnected && state.isInternetReachable && !isSyncing) {
         const pending = getPendingCount()
         if (pending > 0) {
+          isSyncing = true
           console.log(`Back online — syncing ${pending} queued operations...`)
-          const result = await drainQueue()
-          console.log(`Sync complete: ${result.success} success, ${result.failed} failed`)
+          try {
+            const result = await drainQueue()
+            console.log(`Sync complete: ${result.success} success, ${result.failed} failed`)
+          } finally {
+            isSyncing = false
+          }
         }
       }
     })
