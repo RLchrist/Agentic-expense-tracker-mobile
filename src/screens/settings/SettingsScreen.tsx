@@ -8,6 +8,8 @@ import { useExpenseStore } from '../../store/expenseStore'
 import { COLORS, SPACING } from '../../constants'
 import { getPendingCount } from '../../services/sync/offlineSync'
 import { useState, useEffect } from 'react'
+import { requestNotificationPermission, scheduleDailyReminder } from '../../services/notifications/budgetAlerts'
+import { exportToCSV, exportToPDF } from '../../services/export/exportService'
 
 export default function SettingsScreen() {
   const { profile, signOut } = useAuthStore()
@@ -112,7 +114,20 @@ export default function SettingsScreen() {
               </View>
               <Switch
                 value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
+                onValueChange={async (val) => {
+  if (val) {
+    const granted = await requestNotificationPermission()
+    if (granted) {
+      await scheduleDailyReminder()
+      setNotificationsEnabled(true)
+      Alert.alert('✅ Enabled', 'You will get daily reminders at 9 PM')
+    } else {
+      Alert.alert('Permission denied', 'Enable notifications in phone settings')
+    }
+  } else {
+    setNotificationsEnabled(false)
+  }
+}}
                 trackColor={{ false: COLORS.border, true: COLORS.primary }}
                 thumbColor={COLORS.white}
               />
@@ -131,6 +146,45 @@ export default function SettingsScreen() {
             <SettingsRow icon="🗄️" label="Database" value="Supabase" />
           </View>
         </View>
+
+        {/* Export */}
+<View style={styles.section}>
+  <Text style={styles.sectionTitle}>Export Data</Text>
+  <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={async () => {
+        try {
+          await exportToCSV(expenses)
+        } catch (e) {
+          Alert.alert('Error', 'Could not export CSV')
+        }
+      }}
+    >
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowIcon}>📊</Text>
+        <Text style={styles.rowLabel}>Export as CSV</Text>
+      </View>
+      <Text style={styles.arrow}>›</Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={async () => {
+        try {
+          await exportToPDF(expenses, profile?.full_name ?? 'User', 'All Time')
+        } catch (e) {
+          Alert.alert('Error', 'Could not export PDF')
+        }
+      }}
+    >
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowIcon}>📄</Text>
+        <Text style={styles.rowLabel}>Export as PDF</Text>
+      </View>
+      <Text style={styles.arrow}>›</Text>
+    </TouchableOpacity>
+  </View>
+</View>
 
         {/* Danger zone */}
         <View style={styles.section}>

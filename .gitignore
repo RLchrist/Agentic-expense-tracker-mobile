@@ -35,7 +35,7 @@ yarn-error.*
 .env
 
 # pnpm
-pnpm-lock.yaml
+# pnpm-lock.yaml
 
 # typescript
 *.tsbuildinfo

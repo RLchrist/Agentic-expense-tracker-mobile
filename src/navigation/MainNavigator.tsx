@@ -1,20 +1,19 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { Text } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
 import BudgetsScreen from '../screens/dashboard/BudgetsScreen'
+import AnalyticsScreen from '../screens/dashboard/AnalyticsScreen'
 import ExpensesScreen from '../screens/expense/ExpensesScreen'
 import AddExpenseScreen from '../screens/expense/AddExpenseScreen'
+import ReceiptScannerScreen from '../screens/expense/ReceiptScannerScreen'
 import SettingsScreen from '../screens/settings/SettingsScreen'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
 function HomeTabs() {
-  const insets = useSafeAreaInsets()
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -22,9 +21,7 @@ function HomeTabs() {
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
+          paddingBottom: 8, paddingTop: 8, height: 60,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
@@ -39,6 +36,11 @@ function HomeTabs() {
         name="Expenses"
         component={ExpensesScreen}
         options={{ tabBarLabel: 'Expenses', tabBarIcon: () => <Text>📋</Text> }}
+      />
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{ tabBarLabel: 'Analytics', tabBarIcon: () => <Text>📊</Text> }}
       />
       <Tab.Screen
         name="Budgets"
@@ -59,6 +61,7 @@ export default function MainNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeTabs" component={HomeTabs} />
       <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
+      <Stack.Screen name="ReceiptScanner" component={ReceiptScannerScreen} />
     </Stack.Navigator>
   )
 }

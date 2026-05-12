@@ -73,20 +73,26 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
 
        {/* Action buttons */}
-          <View style={{ flexDirection: 'row', gap: SPACING.sm, marginHorizontal: SPACING.lg }}>
-            <TouchableOpacity
-              style={[styles.quickAdd, { flex: 1 }]}
-              onPress={() => navigation.navigate('AddExpense')}
-            >
-              <Text style={styles.quickAddText}>➕  Manual Add</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAdd, { flex: 1, borderColor: COLORS.primary, borderStyle: 'solid' }]}
-              onPress={() => setShowAI(true)}
-            >
-              <Text style={styles.quickAddText}>🤖  AI Add</Text>
-            </TouchableOpacity>
-          </View>
+<View style={{ flexDirection: 'row', gap: SPACING.sm, marginHorizontal: SPACING.lg }}>
+  <TouchableOpacity
+    style={[styles.quickAdd, { flex: 1 }]}
+    onPress={() => navigation.navigate('AddExpense')}
+  >
+    <Text style={styles.quickAddText}>➕ Manual</Text>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.quickAdd, { flex: 1, borderColor: COLORS.primary, borderStyle: 'solid' }]}
+    onPress={() => setShowAI(true)}
+  >
+    <Text style={styles.quickAddText}>🤖 AI Add</Text>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.quickAdd, { flex: 1, borderColor: COLORS.success, borderStyle: 'solid' }]}
+    onPress={() => navigation.navigate('ReceiptScanner')}
+  >
+    <Text style={styles.quickAddText}>📷 Scan</Text>
+  </TouchableOpacity>
+</View>
 
         {/* Recent expenses */}
         <View style={styles.section}>

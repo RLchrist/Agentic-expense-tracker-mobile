@@ -8,13 +8,24 @@ import { useBudgetStore } from '../../store/budgetStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { COLORS, SPACING } from '../../constants'
 import { Category } from '../../types'
+import { checkBudgetAlerts } from '../../services/notifications/budgetAlerts'
 
 export default function BudgetsScreen() {
   const { budgets, isLoading, fetchBudgets, addBudget, deleteBudget } = useBudgetStore()
   const { expenses, categories } = useExpenseStore()
   const [showModal, setShowModal] = useState(false)
 
-  useEffect(() => { fetchBudgets(expenses) }, [expenses])
+useEffect(() => {
+  fetchBudgets(expenses)
+}, [expenses])
+
+// Check alerts whenever budgets update
+useEffect(() => {
+  if (budgets.length > 0) {
+    checkBudgetAlerts(budgets)
+  }
+}, [budgets])
+
 
   const totalBudget = budgets.reduce((s, b) => s + Number(b.amount), 0)
   const totalSpent = budgets.reduce((s, b) => s + b.spent, 0)
