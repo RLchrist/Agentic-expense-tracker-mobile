@@ -8,8 +8,11 @@ import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { COLORS, SPACING } from '../../constants'
 import { Expense } from '../../types'
+import { useState } from 'react'
+import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 
 export default function DashboardScreen({ navigation }: any) {
+  const [showAI, setShowAI] = useState(false)
   const { profile, signOut } = useAuthStore()
   const {
     expenses, isLoading,
@@ -69,13 +72,21 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Quick add button */}
-        <TouchableOpacity
-          style={styles.quickAdd}
-          onPress={() => navigation.navigate('AddExpense')}
-        >
-          <Text style={styles.quickAddText}>➕  Add Expense</Text>
-        </TouchableOpacity>
+       {/* Action buttons */}
+          <View style={{ flexDirection: 'row', gap: SPACING.sm, marginHorizontal: SPACING.lg }}>
+            <TouchableOpacity
+              style={[styles.quickAdd, { flex: 1 }]}
+              onPress={() => navigation.navigate('AddExpense')}
+            >
+              <Text style={styles.quickAddText}>➕  Manual Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickAdd, { flex: 1, borderColor: COLORS.primary, borderStyle: 'solid' }]}
+              onPress={() => setShowAI(true)}
+            >
+              <Text style={styles.quickAddText}>🤖  AI Add</Text>
+            </TouchableOpacity>
+          </View>
 
         {/* Recent expenses */}
         <View style={styles.section}>
@@ -101,7 +112,14 @@ export default function DashboardScreen({ navigation }: any) {
           )}
         </View>
       </ScrollView>
+
+      <VoiceExpenseModal
+      visible={showAI}
+      onClose={() => setShowAI(false)}
+      onSaved={() => fetchExpenses()}
+      />
     </SafeAreaView>
+    
   )
 }
 

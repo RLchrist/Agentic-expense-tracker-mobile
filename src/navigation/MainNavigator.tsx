@@ -1,21 +1,20 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { Text, View } from 'react-native'
+import { Text } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
-import AddExpenseScreen from '../screens/expense/AddExpenseScreen'
+import BudgetsScreen from '../screens/dashboard/BudgetsScreen'
 import ExpensesScreen from '../screens/expense/ExpensesScreen'
-
-const Placeholder = (label: string) => () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
-    <Text style={{ color: COLORS.text, fontSize: 20 }}>{label}</Text>
-  </View>
-)
+import AddExpenseScreen from '../screens/expense/AddExpenseScreen'
+import SettingsScreen from '../screens/settings/SettingsScreen'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
 function HomeTabs() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -23,7 +22,9 @@ function HomeTabs() {
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          paddingBottom: 8, paddingTop: 8, height: 60,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
@@ -41,12 +42,12 @@ function HomeTabs() {
       />
       <Tab.Screen
         name="Budgets"
-        component={Placeholder('💰 Budgets')}
+        component={BudgetsScreen}
         options={{ tabBarLabel: 'Budgets', tabBarIcon: () => <Text>💰</Text> }}
       />
       <Tab.Screen
         name="Settings"
-        component={Placeholder('⚙️ Settings')}
+        component={SettingsScreen}
         options={{ tabBarLabel: 'Settings', tabBarIcon: () => <Text>⚙️</Text> }}
       />
     </Tab.Navigator>
