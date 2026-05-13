@@ -33,6 +33,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   const [textInput, setTextInput] = useState('')
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
   const [realtimeTranscript, setRealtimeTranscript] = useState('')
+  const recognitionActive = useRef(false)
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   const startPulse = () => {
@@ -78,17 +79,18 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
   useSpeechRecognitionEvent('error', (event) => {
     stopPulse()
-    // no-speech is expected when mic is tapped and stopped quickly — ignore silently
-    if (event.error === 'no-speech') {
-      setStage('idle')
+    setStage('idle')
+    const errorCode = String(event.error || '').toLowerCase();
+    // Silently ignore 'no-speech' and 'aborted' errors
+    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
       return
     }
     console.error('Speech recognition error:', event.error, event.message)
     Alert.alert('Voice Error', event.message || 'Could not recognize speech')
-    setStage('idle')
   })
 
   const startRecording = async () => {
+    if (stage === 'recording') return
     try {
       const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
       if (!result.granted) {
@@ -97,6 +99,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       }
 
       setStage('recording')
+      recognitionActive.current = true
       setRealtimeTranscript('')
       startPulse()
 
@@ -109,13 +112,15 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       console.error('Recording failed', e)
       Alert.alert('Error', 'Could not start recording')
       setStage('idle')
+      recognitionActive.current = false
     }
   }
 
   const stopRecording = () => {
+    recognitionActive.current = false
     stopPulse()
-    ExpoSpeechRecognitionModule.stop()
-    // The 'end' event handler will take care of parsing
+    ExpoSpeechRecognitionModule.abort()
+    setStage('idle')
   }
 
   const handleTranscriptionResult = async (text: string) => {

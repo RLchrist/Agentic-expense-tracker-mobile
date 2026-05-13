@@ -32,6 +32,7 @@ export default function DashboardScreen({ navigation }: any) {
     getTotalByPeriod, deleteExpense
   } = useExpenseStore()
   const { budgets, fetchBudgets } = useBudgetStore()
+  const recognitionActive = useRef(false)
 
   // Real-time speech recognition events
   useSpeechRecognitionEvent('result', (event) => {
@@ -46,21 +47,37 @@ export default function DashboardScreen({ navigation }: any) {
   })
 
   useSpeechRecognitionEvent('error', (event) => {
-    console.error('Speech recognition error:', event.error, event.message)
     setIsRecording(false)
-    if (event.error !== 'no-speech') {
-      Alert.alert('Voice Error', event.message || 'Could not recognize speech')
+    const errorCode = String(event.error || '').toLowerCase();
+    
+    // Silently ignore 'no-speech' and 'aborted' errors as they are common 
+    // when stopping the microphone manually or quickly.
+    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
+      return
     }
+    
+    console.error('Speech recognition error:', event.error, event.message)
+    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
   })
 
   const startVoiceInput = async () => {
+    if (isRecording) return
+    setIsRecording(true)
+    recognitionActive.current = true
     try {
       const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
       if (!result.granted) {
+        setIsRecording(false)
+        recognitionActive.current = false
         Alert.alert('Permission Denied', 'We need microphone and speech recognition access.')
         return
       }
-      setIsRecording(true)
+      
+      if (!recognitionActive.current) {
+        setIsRecording(false)
+        return
+      }
+
       ExpoSpeechRecognitionModule.start({
         lang: 'en-US',
         interimResults: true,
@@ -70,11 +87,13 @@ export default function DashboardScreen({ navigation }: any) {
       console.error('STT Error:', e)
       Alert.alert('Error', 'Could not start voice input')
       setIsRecording(false)
+      recognitionActive.current = false
     }
   }
 
   const stopVoiceInput = () => {
-    ExpoSpeechRecognitionModule.stop()
+    recognitionActive.current = false
+    ExpoSpeechRecognitionModule.abort() // Immediate stop
     setIsRecording(false)
   }
 
