@@ -30,7 +30,7 @@ export default function DashboardScreen({ navigation }: any) {
   const {
     expenses, isLoading,
     fetchExpenses, fetchCategories,
-    getTotalByPeriod, deleteExpense
+    getTotalByPeriod, deleteExpense: handleDeleteExpense
   } = useExpenseStore()
   const { budgets, fetchBudgets } = useBudgetStore()
   const recognitionActive = useRef(false)
@@ -129,6 +129,24 @@ export default function DashboardScreen({ navigation }: any) {
     }
   }
 
+  const handleManualParse = async () => {
+    if (isParsing) return
+    setIsParsing(true)
+    const result = await parseExpenseFromText(
+      inputText, 
+      useExpenseStore.getState().categories,
+      attachedImages
+    )
+    setIsParsing(false)
+    if (result) {
+      setParsedResult(result)
+      setShowAI(true)
+      setAttachedImages([]) // Clear images after successful send
+    } else {
+      Alert.alert('Error', 'Could not understand the expense. Please try again.')
+    }
+  }
+
   useEffect(() => {
     const init = async () => {
       await fetchExpenses()
@@ -178,25 +196,26 @@ export default function DashboardScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Month total card */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>Total This Month</Text>
-          <Text style={styles.heroAmount}>
+        {/* Modern Balance Header */}
+        <View style={styles.modernHeader}>
+          <Text style={styles.modernLabel}>Total Balance</Text>
+          <Text style={styles.modernAmount}>
             Rs. {monthTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
           </Text>
-          <View style={styles.heroRow}>
-            <View style={styles.heroPill}>
-              <Text style={styles.heroPillLabel}>Today</Text>
-              <Text style={styles.heroPillAmount}>Rs. {todayTotal.toFixed(0)}</Text>
+          
+          <View style={styles.statsRow}>
+            <View style={styles.statPill}>
+              <Text style={styles.statLabel}>Today</Text>
+              <Text style={styles.statValue}>Rs. {todayTotal.toFixed(0)}</Text>
             </View>
-            <View style={styles.heroPill}>
-              <Text style={styles.heroPillLabel}>This Week</Text>
-              <Text style={styles.heroPillAmount}>Rs. {weekTotal.toFixed(0)}</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statPill}>
+              <Text style={styles.statLabel}>Week</Text>
+              <Text style={styles.statValue}>Rs. {weekTotal.toFixed(0)}</Text>
             </View>
           </View>
         </View>
 
-        {/* Gemini-style Input Bar */}
         <View style={styles.inputContainer}>
           {showActionMenu && (
             <View style={styles.geminiMenu}>
@@ -224,105 +243,82 @@ export default function DashboardScreen({ navigation }: any) {
             </View>
           )}
 
-          {attachedImages.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
-              {attachedImages.map((uri, idx) => (
-                <View key={idx} style={styles.attachmentWrapper}>
-                  <Image source={{ uri }} style={styles.attachmentImage} />
-                  <TouchableOpacity
-                    style={styles.removeAttachment}
-                    onPress={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
-                  >
-                    <Text style={styles.removeText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          )}
           <View style={styles.inputBar}>
-            <TouchableOpacity 
-              style={styles.actionIcon}
-              onPress={() => setShowActionMenu(!showActionMenu)}
-            >
-              <Text style={styles.iconText}>➕</Text>
-            </TouchableOpacity>
-            
-            <TextInput
-              style={styles.textInput}
-              placeholder="Ask anything or add expense..."
-              placeholderTextColor={COLORS.textSecondary}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-            />
-
-            {/* Quick Camera */}
-            <TouchableOpacity 
-              style={styles.secondaryIcon}
-              onPress={openCamera}
-            >
-              <Text style={styles.iconText}>📷</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.micIcon, isRecording && styles.micIconRecording]}
-              onPress={isRecording ? stopVoiceInput : startVoiceInput}
-            >
-              <Text style={styles.iconText}>{isRecording ? '⏹️' : '🎙️'}</Text>
-            </TouchableOpacity>
-
-            {(inputText.trim() !== '' || attachedImages.length > 0) && (
-              <TouchableOpacity 
-                style={styles.sendIcon}
-                onPress={async () => {
-                  if (isParsing) return
-                  setIsParsing(true)
-                  const result = await parseExpenseFromText(
-                    inputText, 
-                    useExpenseStore.getState().categories,
-                    attachedImages
-                  )
-                  setIsParsing(false)
-                  if (result) {
-                    setParsedResult(result)
-                    setShowAI(true)
-                    setAttachedImages([]) // Clear images after successful send
-                  } else {
-                    Alert.alert('Error', 'Could not understand the expense. Please try again.')
-                  }
-                }}
-              >
-                {isParsing ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.iconText}>➡️</Text>
-                )}
-              </TouchableOpacity>
+            {attachedImages.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
+                {attachedImages.map((uri, idx) => (
+                  <View key={idx} style={styles.attachmentWrapper}>
+                    <Image source={{ uri }} style={styles.attachmentImage} />
+                    <TouchableOpacity
+                      style={styles.removeAttachment}
+                      onPress={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <Text style={styles.removeText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             )}
+
+            <View style={styles.inputActionRow}>
+              <TouchableOpacity 
+                style={styles.actionIcon}
+                onPress={() => setShowActionMenu(!showActionMenu)}
+              >
+                <Text style={styles.plusIcon}>+</Text>
+              </TouchableOpacity>
+              
+              <TextInput
+                style={styles.textInput}
+                placeholder="How much did you spend?"
+                placeholderTextColor={COLORS.textSecondary}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+              />
+
+              <View style={styles.inputActions}>
+                <TouchableOpacity onPress={openCamera}>
+                  <Text style={styles.actionEmoji}>📷</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[isRecording && styles.recordingActive]}
+                  onPress={isRecording ? stopVoiceInput : startVoiceInput}
+                >
+                  <Text style={styles.actionEmoji}>{isRecording ? '⏹️' : '🎙️'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {(inputText.trim() !== '' || attachedImages.length > 0) && (
+                <TouchableOpacity 
+                  style={styles.sendBtn}
+                  onPress={handleManualParse}
+                  disabled={isParsing}
+                >
+                  {isParsing ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.sendText}>→</Text>}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
-        {/* Recent expenses */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Expenses</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Expenses')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.recentHeader}>
+          <Text style={styles.recentTitle}>Recent Transactions</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Expenses')}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        </View>
 
-          {isLoading ? (
-            <ActivityIndicator color={COLORS.primary} style={{ marginTop: SPACING.lg }} />
-          ) : recentExpenses.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🧾</Text>
-              <Text style={styles.emptyText}>No expenses yet</Text>
-              <Text style={styles.emptySubtext}>Tap Add Expense to get started</Text>
-            </View>
-          ) : (
-            recentExpenses.map((expense) => (
-              <ExpenseItem key={expense.id} expense={expense} onDelete={deleteExpense} />
+        <View style={styles.listContainer}>
+          {recentExpenses.length > 0 ? (
+            recentExpenses.map(item => (
+              <ExpenseItem key={item.id} expense={item} onDelete={handleDeleteExpense} />
             ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🎐</Text>
+              <Text style={styles.emptyText}>No expenses yet</Text>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -334,27 +330,21 @@ export default function DashboardScreen({ navigation }: any) {
       initialParsed={parsedResult}
       />
     </SafeAreaView>
-    
   )
 }
 
 function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: string) => void }) {
   return (
     <View style={itemStyles.container}>
-      <View style={[itemStyles.iconBox, { backgroundColor: expense.category?.color + '33' ?? '#333' }]}>
+      <View style={[itemStyles.iconBox, { backgroundColor: expense.category?.color + '22' ?? '#33333322' }]}>
         <Text style={itemStyles.icon}>{expense.category?.icon ?? '📦'}</Text>
       </View>
       <View style={itemStyles.info}>
         <Text style={itemStyles.title}>{expense.title}</Text>
-        <Text style={itemStyles.meta}>
-          {expense.category?.name ?? 'Uncategorized'} · {expense.expense_date}
-        </Text>
+        <Text style={itemStyles.meta}>{expense.category?.name ?? 'Uncategorized'}</Text>
       </View>
       <View style={itemStyles.right}>
         <Text style={itemStyles.amount}>Rs. {Number(expense.amount).toFixed(0)}</Text>
-        <TouchableOpacity onPress={() => onDelete(expense.id)}>
-          <Text style={itemStyles.delete}>🗑️</Text>
-        </TouchableOpacity>
       </View>
     </View>
   )
@@ -364,144 +354,140 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', padding: SPACING.lg, paddingBottom: SPACING.sm
+    alignItems: 'center', paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md, paddingBottom: SPACING.sm,
   },
-  greeting: { fontSize: 14, color: COLORS.textSecondary },
-  name: { fontSize: 22, fontWeight: 'bold', color: COLORS.text },
+  greeting: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  name: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginTop: 2 },
   signOutBtn: {
-    backgroundColor: COLORS.surface, paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border
+    paddingVertical: 6, paddingHorizontal: 12,
+    backgroundColor: COLORS.surface, borderRadius: 20,
+    borderWidth: 1, borderColor: COLORS.border,
   },
-  signOutText: { color: COLORS.textSecondary, fontSize: 13 },
-  heroCard: {
-    margin: SPACING.lg, marginTop: SPACING.sm,
-    backgroundColor: COLORS.primary, borderRadius: 20,
-    padding: SPACING.lg,
+  signOutText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  
+  modernHeader: {
+    margin: SPACING.lg,
+    padding: SPACING.xl,
+    backgroundColor: COLORS.primary,
+    borderRadius: 32,
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  heroLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: SPACING.xs },
-  heroAmount: { color: COLORS.white, fontSize: 36, fontWeight: 'bold', marginBottom: SPACING.md },
-  heroRow: { flexDirection: 'row', gap: SPACING.sm },
-  heroPill: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 10, padding: SPACING.sm, alignItems: 'center'
-  },
-  heroPillLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
-  heroPillAmount: { color: COLORS.white, fontWeight: 'bold', fontSize: 15 },
-  inputContainer: {
-    marginHorizontal: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  inputBar: {
+  modernLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '500' },
+  modernAmount: { color: COLORS.white, fontSize: 32, fontWeight: 'bold', marginVertical: SPACING.xs },
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
   },
-  textInput: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 16,
-    paddingVertical: SPACING.xs,
-    maxHeight: 120,
+  statPill: { alignItems: 'center', paddingHorizontal: SPACING.md },
+  statLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  statValue: { color: COLORS.white, fontSize: 14, fontWeight: '700', marginTop: 2 },
+  statDivider: { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
+
+  inputContainer: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.xl,
+    zIndex: 10,
+  },
+  inputBar: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 28,
+    padding: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  inputActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
   },
   actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    justifyContent: 'center', alignItems: 'center',
   },
-  micIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary + '11',
-    justifyContent: 'center',
-    alignItems: 'center',
+  plusIcon: { color: COLORS.text, fontSize: 24, fontWeight: '300' },
+  textInput: {
+    flex: 1, color: COLORS.text, fontSize: 15,
+    paddingHorizontal: SPACING.md, maxHeight: 100,
   },
-  secondaryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  micIconRecording: {
+  inputActions: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.sm },
+  actionEmoji: { fontSize: 20 },
+  recordingActive: {
     backgroundColor: COLORS.error + '22',
-    borderColor: COLORS.error,
-    borderWidth: 1,
+    borderRadius: 15,
+    padding: 2,
   },
-  sendIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
+  emptyEmoji: { fontSize: 48, marginBottom: SPACING.sm },
+  emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
+  emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
+
+  sendBtn: {
+    width: 46, height: 46, borderRadius: 23,
     backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
+    marginLeft: SPACING.xs,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  iconText: {
-    fontSize: 18,
-  },
+  sendText: { color: COLORS.white, fontSize: 24, fontWeight: 'bold' },
+
   attachmentScroll: {
-    paddingBottom: SPACING.xs,
-    marginBottom: SPACING.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: 4,
   },
   attachmentWrapper: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: SPACING.sm,
     position: 'relative',
   },
   attachmentImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   removeAttachment: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -6,
+    right: -6,
     backgroundColor: COLORS.error,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
   removeText: {
     color: COLORS.white,
     fontSize: 12,
     fontWeight: 'bold',
   },
-  section: { padding: SPACING.lg, paddingTop: SPACING.md },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  seeAll: { color: COLORS.primary, fontSize: 14 },
-  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyEmoji: { fontSize: 48, marginBottom: SPACING.sm },
-  emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
   
   // Gemini-style Menu
   geminiMenu: {
     position: 'absolute',
-    bottom: 70, // Positioned relative to inputContainer
+    bottom: 80, // Slightly higher to account for images
     left: 0,
     backgroundColor: '#1E1E1E',
     borderRadius: 20,
