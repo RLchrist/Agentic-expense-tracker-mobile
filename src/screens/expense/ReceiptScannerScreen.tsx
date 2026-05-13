@@ -42,24 +42,22 @@ export default function ReceiptScannerScreen({ navigation }: any) {
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(',')[1]
 
-        // Send to Supabase Edge Function for OCR + parsing
-        const { supabase } = await import('../../services/supabase/client')
-        const { data, error } = await supabase.functions.invoke('parse-receipt', {
-          body: { image: base64, categories },
-        })
+        // Use the AI Router (Online with Offline fallback)
+        const { aiRouter } = await import('../../services/ai/aiRouter')
+        const result = await aiRouter.parseReceipt(compressed.uri, categories)
 
-        if (error || !data?.success) {
+        if (!result.success) {
           // Fallback — ask user to type
           Alert.alert(
-            'OCR tip',
-            'Could not auto-read receipt. Please describe it manually.',
+            result.source === 'offline' ? 'Offline Mode' : 'OCR tip',
+            result.error || 'Could not auto-read receipt. Please describe it manually.',
             [{ text: 'OK', onPress: () => navigation.navigate('AddExpense') }]
           )
           setScanning(false)
           return
         }
 
-        setParsed(data.data)
+        setParsed(result.data)
         setScanning(false)
       }
 

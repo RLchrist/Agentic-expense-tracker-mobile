@@ -13,6 +13,7 @@ interface AuthState {
   setProfile: (profile: Profile | null) => void
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
+  updateProfile: (updates: Partial<Profile>) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,6 +43,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       .eq('id', user.id)
       .single()
     if (data) set({ profile: data })
+  },
+
+  updateProfile: async (updates) => {
+    const { user, profile } = get()
+    if (!user) return
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+      .select()
+      .single()
+    
+    if (!error && data) {
+      set({ profile: data })
+    }
   },
 
   signOut: async () => {

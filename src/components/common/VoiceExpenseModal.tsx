@@ -1,9 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
   ActivityIndicator, Animated, Alert, TextInput, ScrollView
 } from 'react-native'
-import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio'
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition'
 import { COLORS, SPACING } from '../../constants'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { useExpenseStore } from '../../store/expenseStore'
@@ -12,16 +15,24 @@ interface Props {
   visible: boolean
   onClose: () => void
   onSaved: () => void
+  initialParsed?: ParsedExpense | null
 }
 
 type Stage = 'idle' | 'recording' | 'transcribing' | 'parsing' | 'preview' | 'saving'
 
-export default function VoiceExpenseModal({ visible, onClose, onSaved }: Props) {
+export default function VoiceExpenseModal({ visible, onClose, onSaved, initialParsed }: Props) {
   const { categories, addExpense } = useExpenseStore()
   const [stage, setStage] = useState<Stage>('idle')
+
+  useEffect(() => {
+    if (initialParsed) {
+      setParsed(initialParsed)
+      setStage('preview')
+    }
+  }, [initialParsed])
   const [textInput, setTextInput] = useState('')
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
-  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
+  const [realtimeTranscript, setRealtimeTranscript] = useState('')
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   const startPulse = () => {
@@ -38,40 +49,90 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved }: Props) 
     pulseAnim.setValue(1)
   }
 
- const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
+  // Real-time speech recognition events
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = event.results[0]?.transcript
+    if (transcript) {
+      setRealtimeTranscript(transcript)
+      // If this is a final result, auto-parse
+      if (event.isFinal && stage === 'recording') {
+        setStage('parsing')
+        stopPulse()
+        handleTranscriptionResult(transcript)
+      }
+    }
+  })
 
-const startRecording = async () => {
-  try {
-    const status = await AudioModule.requestRecordingPermissionsAsync()
-    if (!status.granted) {
-      Alert.alert('Permission needed', 'Microphone permission is required')
+  useSpeechRecognitionEvent('end', () => {
+    if (stage === 'recording') {
+      stopPulse()
+      // If we have a transcript, parse it
+      if (realtimeTranscript.trim()) {
+        setStage('parsing')
+        handleTranscriptionResult(realtimeTranscript)
+      } else {
+        setStage('idle')
+      }
+    }
+  })
+
+  useSpeechRecognitionEvent('error', (event) => {
+    stopPulse()
+    // no-speech is expected when mic is tapped and stopped quickly — ignore silently
+    if (event.error === 'no-speech') {
+      setStage('idle')
       return
     }
-    await audioRecorder.record()
-    setStage('recording')
-    startPulse()
-  } catch (e) {
-    Alert.alert('Error', 'Could not start recording')
-  }
-}
+    console.error('Speech recognition error:', event.error, event.message)
+    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
+    setStage('idle')
+  })
 
-const stopRecording = async () => {
-  stopPulse()
-  setStage('transcribing')
-  try {
-    await audioRecorder.stop()
-    setStage('idle')
-    setInputMode('text')
-    Alert.alert(
-      'Voice recorded! 🎙️',
-      'Type what you said to parse it with AI',
-      [{ text: 'OK' }]
-    )
-  } catch (e) {
-    Alert.alert('Error', 'Recording failed')
-    setStage('idle')
+  const startRecording = async () => {
+    try {
+      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      if (!result.granted) {
+        Alert.alert('Permission needed', 'Microphone and speech recognition permissions are required')
+        return
+      }
+
+      setStage('recording')
+      setRealtimeTranscript('')
+      startPulse()
+
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        continuous: false,
+      })
+    } catch (e) {
+      console.error('Recording failed', e)
+      Alert.alert('Error', 'Could not start recording')
+      setStage('idle')
+    }
   }
-}
+
+  const stopRecording = () => {
+    stopPulse()
+    ExpoSpeechRecognitionModule.stop()
+    // The 'end' event handler will take care of parsing
+  }
+
+  const handleTranscriptionResult = async (text: string) => {
+    try {
+      const result = await parseExpenseFromText(text, categories)
+      if (result) {
+        setParsed(result)
+        setStage('preview')
+      } else {
+        setStage('idle')
+        Alert.alert('Error', 'Could not understand the expense.')
+      }
+    } catch (e) {
+      console.error('Parsing failed', e)
+      setStage('idle')
+    }
+  }
 
   const parseWithAI = async (text: string) => {
     if (!text.trim()) {
@@ -146,26 +207,8 @@ const stopRecording = async () => {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Mode toggle */}
-            {stage === 'idle' && (
-              <View style={styles.modeToggle}>
-                <TouchableOpacity
-                  style={[styles.modeBtn, inputMode === 'voice' && styles.modeBtnActive]}
-                  onPress={() => setInputMode('voice')}
-                >
-                  <Text style={styles.modeBtnText}>🎙️ Voice</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modeBtn, inputMode === 'text' && styles.modeBtnActive]}
-                  onPress={() => setInputMode('text')}
-                >
-                  <Text style={styles.modeBtnText}>⌨️ Text</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
             {/* Voice mode */}
-            {inputMode === 'voice' && stage !== 'preview' && (
+            {stage !== 'preview' && (
               <View style={styles.voiceSection}>
                 <Animated.View style={[styles.micOuter, { transform: [{ scale: pulseAnim }] }]}>
                   <TouchableOpacity
@@ -179,9 +222,15 @@ const stopRecording = async () => {
                   </TouchableOpacity>
                 </Animated.View>
 
+                {realtimeTranscript !== '' && (
+                  <View style={styles.realtimeContainer}>
+                    <Text style={styles.realtimeText}>{realtimeTranscript}</Text>
+                  </View>
+                )}
+
                 <Text style={styles.voiceHint}>
                   {stage === 'idle' && 'Tap mic and say your expense'}
-                  {stage === 'recording' && '🔴 Recording... tap to stop'}
+                  {stage === 'recording' && '🔴 Listening... tap to stop'}
                   {stage === 'transcribing' && 'Processing audio...'}
                   {stage === 'parsing' && 'AI is parsing...'}
                 </Text>
@@ -189,38 +238,6 @@ const stopRecording = async () => {
                 {(stage === 'transcribing' || stage === 'parsing') && (
                   <ActivityIndicator color={COLORS.primary} style={{ marginTop: SPACING.md }} />
                 )}
-              </View>
-            )}
-
-            {/* Text mode */}
-            {inputMode === 'text' && stage !== 'preview' && stage !== 'saving' && (
-              <View style={styles.textSection}>
-                <Text style={styles.textHint}>
-                  Describe your expense naturally:
-                </Text>
-                <Text style={styles.example}>
-                  e.g. "Spent 250 on lunch at Thamel" or "Bus fare 30 rupees"
-                </Text>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="Type your expense here..."
-                  placeholderTextColor={COLORS.textSecondary}
-                  value={textInput}
-                  onChangeText={setTextInput}
-                  multiline
-                  numberOfLines={3}
-                  autoFocus
-                />
-                <TouchableOpacity
-                  style={[styles.parseBtn, stage === 'parsing' && styles.parseBtnDisabled]}
-                  onPress={() => parseWithAI(textInput)}
-                  disabled={stage === 'parsing'}
-                >
-                  {stage === 'parsing'
-                    ? <ActivityIndicator color={COLORS.white} />
-                    : <Text style={styles.parseBtnText}>✨ Parse with AI</Text>
-                  }
-                </TouchableOpacity>
               </View>
             )}
 
@@ -308,15 +325,6 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
   closeBtn: { color: COLORS.textSecondary, fontSize: 20, padding: SPACING.xs },
-  modeToggle: {
-    flexDirection: 'row', backgroundColor: COLORS.background,
-    borderRadius: 12, padding: 4, marginBottom: SPACING.lg,
-  },
-  modeBtn: {
-    flex: 1, padding: SPACING.sm, borderRadius: 10, alignItems: 'center',
-  },
-  modeBtnActive: { backgroundColor: COLORS.primary },
-  modeBtnText: { color: COLORS.text, fontWeight: '600' },
   voiceSection: { alignItems: 'center', paddingVertical: SPACING.xl },
   micOuter: {
     width: 100, height: 100, borderRadius: 50,
@@ -331,6 +339,22 @@ const styles = StyleSheet.create({
   },
   micBtnRecording: { backgroundColor: COLORS.error },
   micIcon: { fontSize: 36 },
+  realtimeContainer: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: SPACING.md,
+    width: '100%',
+    marginBottom: SPACING.lg,
+    minHeight: 60,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  realtimeText: {
+    color: COLORS.text,
+    fontSize: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   voiceHint: { color: COLORS.textSecondary, fontSize: 15, textAlign: 'center' },
   textSection: { gap: SPACING.md },
   textHint: { color: COLORS.text, fontSize: 16, fontWeight: '600' },

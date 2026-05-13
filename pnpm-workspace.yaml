@@ -1,1 +1,4 @@
 nodeLinker: hoisted
+patchedDependencies:
+  react-native-tesseract-ocr: patches/react-native-tesseract-ocr.patch
+  react-native-whisper: patches/react-native-whisper.patch

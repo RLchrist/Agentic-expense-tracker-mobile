@@ -1,28 +1,101 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, RefreshControl, ActivityIndicator
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as ImagePicker from 'expo-image-picker'
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
+import { useBudgetStore } from '../../store/budgetStore'
 import { COLORS, SPACING } from '../../constants'
 import { Expense } from '../../types'
-import { useState } from 'react'
+import { processRecurringExpenses, processBudgetResets } from '../../services/recurring/recurringService'
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
+import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 
 export default function DashboardScreen({ navigation }: any) {
   const [showAI, setShowAI] = useState(false)
+  const [inputText, setInputText] = useState('')
+  const [isParsing, setIsParsing] = useState(false)
+  const [attachedImages, setAttachedImages] = useState<string[]>([])
+  const [isRecording, setIsRecording] = useState(false)
+  const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
   const { profile, signOut } = useAuthStore()
   const {
     expenses, isLoading,
     fetchExpenses, fetchCategories,
     getTotalByPeriod, deleteExpense
   } = useExpenseStore()
+  const { budgets, fetchBudgets } = useBudgetStore()
+
+  // Real-time speech recognition events
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = event.results[0]?.transcript
+    if (transcript) {
+      setInputText(transcript)
+    }
+  })
+
+  useSpeechRecognitionEvent('end', () => {
+    setIsRecording(false)
+  })
+
+  useSpeechRecognitionEvent('error', (event) => {
+    console.error('Speech recognition error:', event.error, event.message)
+    setIsRecording(false)
+    if (event.error !== 'no-speech') {
+      Alert.alert('Voice Error', event.message || 'Could not recognize speech')
+    }
+  })
+
+  const startVoiceInput = async () => {
+    try {
+      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      if (!result.granted) {
+        Alert.alert('Permission Denied', 'We need microphone and speech recognition access.')
+        return
+      }
+      setIsRecording(true)
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        continuous: false,
+      })
+    } catch (e) {
+      console.error('STT Error:', e)
+      Alert.alert('Error', 'Could not start voice input')
+      setIsRecording(false)
+    }
+  }
+
+  const stopVoiceInput = () => {
+    ExpoSpeechRecognitionModule.stop()
+    setIsRecording(false)
+  }
 
   useEffect(() => {
-    fetchExpenses()
-    fetchCategories()
+    const init = async () => {
+      await fetchExpenses()
+      await fetchCategories()
+      
+      // Process recurring items and budget resets
+      const currentExpenses = useExpenseStore.getState().expenses
+      if (currentExpenses.length > 0) {
+        await processRecurringExpenses(currentExpenses)
+      }
+
+      await fetchBudgets(currentExpenses)
+      const currentBudgets = useBudgetStore.getState().budgets
+      if (currentBudgets.length > 0) {
+        await processBudgetResets(currentBudgets)
+      }
+    }
+    init()
   }, [])
 
   const todayTotal = getTotalByPeriod('today')
@@ -72,27 +145,115 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
         </View>
 
-       {/* Action buttons */}
-<View style={{ flexDirection: 'row', gap: SPACING.sm, marginHorizontal: SPACING.lg }}>
-  <TouchableOpacity
-    style={[styles.quickAdd, { flex: 1 }]}
-    onPress={() => navigation.navigate('AddExpense')}
-  >
-    <Text style={styles.quickAddText}>➕ Manual</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-    style={[styles.quickAdd, { flex: 1, borderColor: COLORS.primary, borderStyle: 'solid' }]}
-    onPress={() => setShowAI(true)}
-  >
-    <Text style={styles.quickAddText}>🤖 AI Add</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-    style={[styles.quickAdd, { flex: 1, borderColor: COLORS.success, borderStyle: 'solid' }]}
-    onPress={() => navigation.navigate('ReceiptScanner')}
-  >
-    <Text style={styles.quickAddText}>📷 Scan</Text>
-  </TouchableOpacity>
-</View>
+        {/* Gemini-style Input Bar */}
+        <View style={styles.inputContainer}>
+          {attachedImages.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
+              {attachedImages.map((uri, idx) => (
+                <View key={idx} style={styles.attachmentWrapper}>
+                  <Image source={{ uri }} style={styles.attachmentImage} />
+                  <TouchableOpacity
+                    style={styles.removeAttachment}
+                    onPress={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Text style={styles.removeText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+          <View style={styles.inputBar}>
+            <TouchableOpacity 
+              style={styles.actionIcon}
+              onPress={() => {
+                Alert.alert(
+                  'Attach',
+                  'Choose an option',
+                  [
+                    {
+                      text: '📷 Camera',
+                      onPress: async () => {
+                        const { status } = await ImagePicker.requestCameraPermissionsAsync()
+                        if (status !== 'granted') {
+                          Alert.alert('Permission Denied', 'We need camera access.')
+                          return
+                        }
+                        const result = await ImagePicker.launchCameraAsync({
+                          quality: 0.7,
+                        })
+                        if (!result.canceled) {
+                          setAttachedImages([...attachedImages, result.assets[0].uri])
+                        }
+                      }
+                    },
+                    {
+                      text: '🖼️ Photos & Files',
+                      onPress: async () => {
+                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+                        if (status !== 'granted') {
+                          Alert.alert('Permission Denied', 'We need gallery access.')
+                          return
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ['images'],
+                          quality: 0.7,
+                          allowsMultipleSelection: true,
+                        })
+                        if (!result.canceled) {
+                          const uris = result.assets.map(a => a.uri)
+                          setAttachedImages([...attachedImages, ...uris])
+                        }
+                      }
+                    },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                )
+              }}
+            >
+              <Text style={styles.iconText}>➕</Text>
+            </TouchableOpacity>
+            
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ask anything or add expense..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+            />
+
+            <TouchableOpacity 
+              style={[styles.micIcon, isRecording && styles.micIconRecording]}
+              onPress={isRecording ? stopVoiceInput : startVoiceInput}
+            >
+              <Text style={styles.iconText}>{isRecording ? '⏹️' : '🎙️'}</Text>
+            </TouchableOpacity>
+
+            {(inputText.trim() !== '' || attachedImages.length > 0) && (
+              <TouchableOpacity 
+                style={styles.sendIcon}
+                onPress={async () => {
+                  if (isParsing) return
+                  setIsParsing(true)
+                  const result = await parseExpenseFromText(inputText, useExpenseStore.getState().categories)
+                  setIsParsing(false)
+                  if (result) {
+                    setParsedResult(result)
+                    setShowAI(true)
+                  } else {
+                    Alert.alert('Error', 'Could not understand the expense. Please try again.')
+                  }
+                }}
+              >
+                {isParsing ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.iconText}>➡️</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
         {/* Recent expenses */}
         <View style={styles.section}>
@@ -121,8 +282,9 @@ export default function DashboardScreen({ navigation }: any) {
 
       <VoiceExpenseModal
       visible={showAI}
-      onClose={() => setShowAI(false)}
-      onSaved={() => fetchExpenses()}
+      onClose={() => { setShowAI(false); setParsedResult(null); setInputText('') }}
+      onSaved={() => { fetchExpenses(); setInputText('') }}
+      initialParsed={parsedResult}
       />
     </SafeAreaView>
     
@@ -178,12 +340,100 @@ const styles = StyleSheet.create({
   },
   heroPillLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
   heroPillAmount: { color: COLORS.white, fontWeight: 'bold', fontSize: 15 },
-  quickAdd: {
-    marginHorizontal: SPACING.lg, backgroundColor: COLORS.surface,
-    borderRadius: 12, padding: SPACING.md, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed'
+  inputContainer: {
+    marginHorizontal: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  quickAddText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 16 },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  textInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 16,
+    paddingVertical: SPACING.xs,
+    maxHeight: 120,
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary + '11',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micIconRecording: {
+    backgroundColor: COLORS.error + '22',
+    borderColor: COLORS.error,
+    borderWidth: 1,
+  },
+  sendIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconText: {
+    fontSize: 18,
+  },
+  attachmentScroll: {
+    paddingBottom: SPACING.xs,
+    marginBottom: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  attachmentWrapper: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.sm,
+    position: 'relative',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  removeAttachment: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: COLORS.error,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   section: { padding: SPACING.lg, paddingTop: SPACING.md },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },

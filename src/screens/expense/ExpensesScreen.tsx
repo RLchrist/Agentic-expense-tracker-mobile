@@ -12,15 +12,19 @@ export default function ExpensesScreen({ navigation }: any) {
   const { expenses, isLoading, fetchExpenses, deleteExpense } = useExpenseStore()
   const [search, setSearch] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   useEffect(() => { fetchExpenses() }, [])
 
   const filtered = expenses.filter((e) => {
     const matchSearch =
       e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.category?.name.toLowerCase().includes(search.toLowerCase())
+      e.category?.name.toLowerCase().includes(search.toLowerCase()) ||
+      e.note?.toLowerCase().includes(search.toLowerCase())
 
     if (!matchSearch) return false
+
+    if (selectedCategory && e.category_id !== selectedCategory) return false
 
     const now = new Date()
     const d = new Date(e.expense_date)
@@ -104,6 +108,34 @@ export default function ExpensesScreen({ navigation }: any) {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Category Filter */}
+      <View style={{ marginBottom: SPACING.sm }}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={[{ id: null, name: 'All Categories', icon: '📦' }, ...useExpenseStore.getState().categories]}
+          keyExtractor={(item) => item.id ?? 'all'}
+          contentContainerStyle={{ paddingHorizontal: SPACING.lg, gap: SPACING.xs }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.catChip,
+                selectedCategory === item.id && styles.catChipActive
+              ]}
+              onPress={() => setSelectedCategory(item.id)}
+            >
+              <Text style={styles.catChipIcon}>{item.icon}</Text>
+              <Text style={[
+                styles.catChipText,
+                selectedCategory === item.id && styles.catChipTextActive
+              ]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
       {/* Summary bar */}

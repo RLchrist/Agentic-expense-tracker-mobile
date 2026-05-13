@@ -1,0 +1,117 @@
+diff --git a/android/CMakeLists.txt b/android/CMakeLists.txt
+index ac8d3720972b62b44bd22fb99488295ccc6e58da..0b5ef8c6d78d550d771fd7b1f71f2f52bc364dc1 100644
+--- a/android/CMakeLists.txt
++++ b/android/CMakeLists.txt
+@@ -8,40 +8,25 @@ include_directories(
+         "${NODE_MODULES_DIR}/react-native/React"
+         "${NODE_MODULES_DIR}/react-native/React/Base"
+         "${NODE_MODULES_DIR}/react-native/ReactCommon/jsi"
+-        "../cpp"
+-        "."
++        "${CMAKE_CURRENT_SOURCE_DIR}/../cpp"
++        "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/wrapper"
++        "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/utils"
++        "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/whisper.cpp"
++        "${CMAKE_CURRENT_SOURCE_DIR}"
+ )
+ 
+-file (GLOB LIBRN_DIR "${BUILD_DIR}/react-native-0*/jni/${ANDROID_ABI}")
+-message(STATUS "LIBRN_DIR: ${LIBRN_DIR}")
+-
+-if (EXISTS "${LIBRN_DIR}/libjsi.so")
+-  # React Native 0.66.x and above
+-
+-  find_library(
+-          JSI_LIB
+-          jsi
+-          PATHS ${LIBRN_DIR}
+-          NO_CMAKE_FIND_ROOT_PATH
+-  )
++# Modern React Native (0.71+) uses prefab to expose JSI and other headers/libraries
++find_package(ReactAndroid REQUIRED CONFIG)
+ 
+-  add_library(
+-          ${PACKAGE_NAME}
+-          SHARED
+-          ../cpp/example.cpp
+-          ./cpp-adapter.cpp
+-  )
+-else()
+-  # React Native 0.65.x and below
+-  set (JSI_LIB "")
+-  add_library(
+-          ${PACKAGE_NAME}
+-          SHARED
+-          ../../react-native/ReactCommon/jsi/jsi/jsi.cpp
+-          ../cpp/example.cpp
+-          ./cpp-adapter.cpp
+-  )
+-endif()
++add_library(
++        ${PACKAGE_NAME}
++        SHARED
++        ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/example.cpp
++        ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/whisper.cpp/whisper.cpp
++        ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/whisper.cpp/common.cpp
++        ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/whisper.cpp/ggml.c
++        ${CMAKE_CURRENT_SOURCE_DIR}/cpp-adapter.cpp
++)
+ 
+ set_target_properties(
+         ${PACKAGE_NAME} PROPERTIES
+@@ -50,23 +35,14 @@ set_target_properties(
+         POSITION_INDEPENDENT_CODE ON
+ )
+ 
+-find_package(ReactAndroid REQUIRED CONFIG)
+ find_library(
+         LOG_LIB
+         log
+ )
+ 
+-find_library(
+-        REACT_NATIVE_JNI_LIB
+-        reactnativejni
+-        PATHS ${LIBRN_DIR}
+-        NO_CMAKE_FIND_ROOT_PATH
+-)
+-
+-
+ target_link_libraries(
+         ${PACKAGE_NAME}
+         ${LOG_LIB}
+-        ReactAndroid::jsi   # <-- JSI
++        ReactAndroid::jsi   # <-- JSI from ReactAndroid prefab
+         android
+ )
+diff --git a/android/build.gradle b/android/build.gradle
+index 67d6ee1410116a861e7aa3a844601632037a2f9e..27437c6807333a8436a831bc5b25fb84c94842bb 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -31,17 +31,15 @@ if (nodeModulesDir.toFile().exists() && reactNativeDir.toFile().exists()) {
+   found = true
+ }
+ 
+-if(!found){
+-  // Node's module resolution algorithm searches up to the root directory,
+-  // after which the base path will be null
+-  while (basePath) {
+-    nodeModulesDir = Paths.get(basePath.toString(), "node_modules")
+-    reactNativeDir = Paths.get(nodeModulesDir.toString(), "react-native/android")
+-    if (nodeModulesDir.toFile().exists() && reactNativeDir.toFile().exists()) {
+-      found = true
+-      break;
+-    }
+-    basePath = basePath.getParent()
++if(!found) {
++  nodeModulesDir = Paths.get(rootProject.projectDir.parent.toString(), "node_modules")
++  def rnDir = Paths.get(nodeModulesDir.toString(), "react-native")
++  reactNativeDir = Paths.get(rnDir.toString(), "android")
++  if (!reactNativeDir.toFile().exists()) {
++    reactNativeDir = Paths.get(rnDir.toString(), "ReactAndroid")
++  }
++  if (rnDir.toFile().exists() && reactNativeDir.toFile().exists()) {
++    found = true
+   }
+ }
+ 

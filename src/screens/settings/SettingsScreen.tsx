@@ -10,9 +10,12 @@ import { getPendingCount } from '../../services/sync/offlineSync'
 import { useState, useEffect } from 'react'
 import { requestNotificationPermission, scheduleDailyReminder } from '../../services/notifications/budgetAlerts'
 import { exportToCSV, exportToPDF } from '../../services/export/exportService'
+import * as ImagePicker from 'expo-image-picker'
+import { supabase } from '../../services/supabase/client'
+import { Image } from 'expo-image'
 
 export default function SettingsScreen() {
-  const { profile, signOut } = useAuthStore()
+  const { profile, signOut, updateProfile } = useAuthStore()
   const { expenses, categories } = useExpenseStore()
   const [pendingSync, setPendingSync] = useState(0)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
@@ -20,6 +23,40 @@ export default function SettingsScreen() {
   useEffect(() => {
     setPendingSync(getPendingCount())
   }, [])
+
+  const handleAvatarUpload = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    })
+
+    if (!result.canceled && result.assets[0].uri) {
+      const { assets } = result
+      const filePath = `${profile?.id}/avatar.jpg`
+      
+      const response = await fetch(assets[0].uri)
+      const blob = await response.blob()
+      
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, { upsert: true })
+      
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        await updateProfile({ avatar_url: publicUrl })
+      }
+    }
+  }
+
+  const CURRENCIES = [
+    { code: 'NPR', label: 'Nepalese Rupee (Rs.)' },
+    { code: 'USD', label: 'US Dollar ($)' },
+    { code: 'EUR', label: 'Euro (€)' },
+    { code: 'INR', label: 'Indian Rupee (₹)' },
+  ]
 
   const totalExpenses = expenses.length
   const totalSpent = expenses.reduce((s, e) => s + Number(e.amount), 0)

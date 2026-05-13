@@ -1,21 +1,22 @@
 import { useState } from 'react'
-import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, Alert, ActivityIndicator
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Switch } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useExpenseStore } from '../../store/expenseStore'
+import { useAuthStore } from '../../store/authStore'
 import { COLORS, SPACING, PAYMENT_METHODS } from '../../constants'
 import { Category } from '../../types'
 
 export default function AddExpenseScreen({ navigation }: any) {
   const { categories, addExpense } = useExpenseStore()
+  const { profile } = useAuthStore()
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [selectedPayment, setSelectedPayment] = useState('cash')
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0])
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringPeriod, setRecurringPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly')
   const [loading, setLoading] = useState(false)
 
   const handleSave = async () => {
@@ -27,13 +28,15 @@ export default function AddExpenseScreen({ navigation }: any) {
     await addExpense({
       title: title.trim(),
       amount: parseFloat(amount),
-      currency: 'NPR',
+      currency: profile?.currency ?? 'NPR',
       category_id: selectedCategory.id,
       note: note.trim() || null,
       receipt_url: null,
       expense_date: expenseDate,
       payment_method: selectedPayment,
       is_synced: true,
+      is_recurring: isRecurring,
+      recurring_period: isRecurring ? recurringPeriod : null,
       local_id: null,
     })
     setLoading(false)
@@ -153,6 +156,42 @@ export default function AddExpenseScreen({ navigation }: any) {
                 ))}
               </View>
             </ScrollView>
+          </View>
+
+          {/* Recurring */}
+          <View style={styles.field}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>Recurring Expense</Text>
+              <Switch
+                value={isRecurring}
+                onValueChange={setIsRecurring}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+              />
+            </View>
+            {isRecurring && (
+              <View style={[styles.categoryRow, { marginTop: SPACING.xs }]}>
+                {['daily', 'weekly', 'monthly', 'yearly'].map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[
+                      styles.categoryChip,
+                      recurringPeriod === p && {
+                        backgroundColor: COLORS.primary + '33',
+                        borderColor: COLORS.primary,
+                      }
+                    ]}
+                    onPress={() => setRecurringPeriod(p as any)}
+                  >
+                    <Text style={[
+                      styles.categoryName,
+                      recurringPeriod === p && { color: COLORS.primary }
+                    ]}>
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Note */}

@@ -32,6 +32,8 @@ export interface Expense {
   expense_date: string
   payment_method: string
   is_synced: boolean
+  is_recurring: boolean
+  recurring_period: 'daily' | 'weekly' | 'monthly' | 'yearly' | null
   local_id: string | null
   created_at: string
   updated_at: string
@@ -43,7 +45,8 @@ export interface Budget {
   user_id: string
   category_id: string | null
   amount: number
-  period: string
+  period: 'weekly' | 'monthly' | 'yearly'
+  is_recurring: boolean
   start_date: string
   end_date: string
   created_at: string
