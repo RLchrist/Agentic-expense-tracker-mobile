@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Switch } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Switch, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useAuthStore } from '../../store/authStore'
@@ -7,7 +7,7 @@ import { COLORS, SPACING, PAYMENT_METHODS } from '../../constants'
 import { Category } from '../../types'
 
 export default function AddExpenseScreen({ navigation }: any) {
-  const { categories, addExpense } = useExpenseStore()
+  const { categories, paymentMethods, addExpense, addCategory, addPaymentMethod } = useExpenseStore()
   const { profile } = useAuthStore()
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
@@ -18,6 +18,12 @@ export default function AddExpenseScreen({ navigation }: any) {
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurringPeriod, setRecurringPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly')
   const [loading, setLoading] = useState(false)
+
+  // Custom Prompt State (since Alert.prompt is iOS only)
+  const [promptVisible, setPromptVisible] = useState(false)
+  const [promptTitle, setPromptTitle] = useState('')
+  const [promptValue, setPromptValue] = useState('')
+  const [promptType, setPromptType] = useState<'category' | 'payment'>('category')
 
   const handleSave = async () => {
     if (!title.trim()) { Alert.alert('Error', 'Please enter a title'); return }
@@ -43,6 +49,40 @@ export default function AddExpenseScreen({ navigation }: any) {
     Alert.alert('Success', 'Expense added!', [
       { text: 'OK', onPress: () => navigation.goBack() }
     ])
+  }
+
+  const handleAddNewCategory = () => {
+    setPromptTitle('New Category')
+    setPromptType('category')
+    setPromptValue('')
+    setPromptVisible(true)
+  }
+
+  const handleAddNewPayment = () => {
+    setPromptTitle('New Payment Method')
+    setPromptType('payment')
+    setPromptValue('')
+    setPromptVisible(true)
+  }
+
+  const handlePromptSubmit = async () => {
+    if (!promptValue.trim()) return
+
+    if (promptType === 'category') {
+      const newCat = await addCategory({ 
+        name: promptValue.trim(), 
+        icon: '📦', 
+        color: COLORS.primary 
+      })
+      if (newCat) setSelectedCategory(newCat)
+    } else {
+      addPaymentMethod({ 
+        label: promptValue.trim(), 
+        icon: '💳' 
+      })
+      setSelectedPayment(promptValue.trim().toLowerCase().replace(/\s+/g, '_'))
+    }
+    setPromptVisible(false)
   }
 
   return (
@@ -124,6 +164,13 @@ export default function AddExpenseScreen({ navigation }: any) {
                     </Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  style={[styles.categoryChip, styles.addBtn]}
+                  onPress={handleAddNewCategory}
+                >
+                  <Text style={styles.addBtnIcon}>+</Text>
+                  <Text style={styles.addBtnText}>Add New</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -133,7 +180,7 @@ export default function AddExpenseScreen({ navigation }: any) {
             <Text style={styles.label}>Payment Method</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.categoryRow}>
-                {PAYMENT_METHODS.map((pm) => (
+                {paymentMethods.map((pm) => (
                   <TouchableOpacity
                     key={pm.value}
                     style={[
@@ -154,6 +201,13 @@ export default function AddExpenseScreen({ navigation }: any) {
                     </Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  style={[styles.categoryChip, styles.addBtn]}
+                  onPress={handleAddNewPayment}
+                >
+                  <Text style={styles.addBtnIcon}>+</Text>
+                  <Text style={styles.addBtnText}>Add New</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -221,6 +275,42 @@ export default function AddExpenseScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Cross-platform Prompt Modal */}
+      <Modal
+        visible={promptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPromptVisible(false)}
+      >
+        <View style={styles.promptOverlay}>
+          <View style={styles.promptCard}>
+            <Text style={styles.promptTitle}>{promptTitle}</Text>
+            <TextInput
+              style={styles.promptInput}
+              value={promptValue}
+              onChangeText={setPromptValue}
+              placeholder="Enter name..."
+              placeholderTextColor={COLORS.textSecondary}
+              autoFocus
+            />
+            <View style={styles.promptActions}>
+              <TouchableOpacity 
+                style={styles.promptCancel} 
+                onPress={() => setPromptVisible(false)}
+              >
+                <Text style={styles.promptCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.promptSubmit} 
+                onPress={handlePromptSubmit}
+              >
+                <Text style={styles.promptSubmitText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -269,4 +359,63 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
+  addBtn: { borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: 'transparent' },
+  addBtnIcon: { fontSize: 16, color: COLORS.primary, fontWeight: 'bold' },
+  addBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: 'bold' },
+
+  // Prompt Modal Styles
+  promptOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  promptCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  promptTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: SPACING.md,
+  },
+  promptInput: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: SPACING.md,
+    color: COLORS.text,
+    fontSize: 16,
+    marginBottom: SPACING.lg,
+  },
+  promptActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.md,
+  },
+  promptCancel: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  promptCancelText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  promptSubmit: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 10,
+  },
+  promptSubmitText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 })

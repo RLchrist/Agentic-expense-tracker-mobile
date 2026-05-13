@@ -11,11 +11,13 @@ const CATEGORIES_CACHE_KEY = 'cached_categories'
 interface ExpenseState {
   expenses: Expense[]
   categories: Category[]
+  paymentMethods: { label: string; value: string; icon: string }[]
   isLoading: boolean
   error: string | null
   fetchExpenses: () => Promise<void>
   fetchCategories: () => Promise<void>
   addCategory: (category: { name: string; icon: string; color: string }) => Promise<Category | null>
+  addPaymentMethod: (method: { label: string; icon: string }) => void
   addExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
   getTotalByPeriod: (period: 'today' | 'week' | 'month') => number
@@ -24,6 +26,19 @@ interface ExpenseState {
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   categories: [],
+  paymentMethods: (() => {
+    try {
+      const cached = cacheStorage.getString('custom_payment_methods')
+      if (cached) return JSON.parse(cached)
+    } catch {}
+    return [
+      { label: 'Cash', value: 'cash', icon: '💵' },
+      { label: 'Card', value: 'card', icon: '💳' },
+      { label: 'Digital Wallet', value: 'digital_wallet', icon: '📱' },
+      { label: 'Bank Transfer', value: 'bank_transfer', icon: '🏦' },
+      { label: 'Other', value: 'other', icon: '📦' },
+    ]
+  })(),
   isLoading: false,
   error: null,
 
@@ -85,6 +100,16 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       return data
     }
     return null
+  },
+
+  addPaymentMethod: (method) => {
+    const newValue = method.label.toLowerCase().replace(/\s+/g, '_')
+    const newMethod = { ...method, value: newValue }
+    set((state) => {
+      const updated = [...state.paymentMethods, newMethod]
+      cacheStorage.set('custom_payment_methods', JSON.stringify(updated))
+      return { paymentMethods: updated }
+    })
   },
 
 addExpense: async (expense) => {
