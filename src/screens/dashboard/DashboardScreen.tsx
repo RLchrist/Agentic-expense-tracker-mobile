@@ -97,6 +97,37 @@ export default function DashboardScreen({ navigation }: any) {
     setIsRecording(false)
   }
 
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need camera access.')
+      return
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+    })
+    if (!result.canceled) {
+      setAttachedImages(prev => [...prev, result.assets[0].uri])
+    }
+  }
+
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need gallery access.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsMultipleSelection: true,
+    })
+    if (!result.canceled) {
+      const uris = result.assets.map(a => a.uri)
+      setAttachedImages(prev => [...prev, ...uris])
+    }
+  }
+
   useEffect(() => {
     const init = async () => {
       await fetchExpenses()
@@ -182,54 +213,20 @@ export default function DashboardScreen({ navigation }: any) {
             </ScrollView>
           )}
           <View style={styles.inputBar}>
+            {/* Manual Entry Button */}
             <TouchableOpacity 
               style={styles.actionIcon}
-              onPress={() => {
-                Alert.alert(
-                  'Attach',
-                  'Choose an option',
-                  [
-                    {
-                      text: '📷 Camera',
-                      onPress: async () => {
-                        const { status } = await ImagePicker.requestCameraPermissionsAsync()
-                        if (status !== 'granted') {
-                          Alert.alert('Permission Denied', 'We need camera access.')
-                          return
-                        }
-                        const result = await ImagePicker.launchCameraAsync({
-                          quality: 0.7,
-                        })
-                        if (!result.canceled) {
-                          setAttachedImages([...attachedImages, result.assets[0].uri])
-                        }
-                      }
-                    },
-                    {
-                      text: '🖼️ Photos & Files',
-                      onPress: async () => {
-                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-                        if (status !== 'granted') {
-                          Alert.alert('Permission Denied', 'We need gallery access.')
-                          return
-                        }
-                        const result = await ImagePicker.launchImageLibraryAsync({
-                          mediaTypes: ['images'],
-                          quality: 0.7,
-                          allowsMultipleSelection: true,
-                        })
-                        if (!result.canceled) {
-                          const uris = result.assets.map(a => a.uri)
-                          setAttachedImages([...attachedImages, ...uris])
-                        }
-                      }
-                    },
-                    { text: 'Cancel', style: 'cancel' }
-                  ]
-                )
-              }}
+              onPress={() => navigation.navigate('AddExpense')}
             >
-              <Text style={styles.iconText}>➕</Text>
+              <Text style={styles.iconText}>📝</Text>
+            </TouchableOpacity>
+
+            {/* Gallery Button */}
+            <TouchableOpacity 
+              style={styles.actionIcon}
+              onPress={openGallery}
+            >
+              <Text style={styles.iconText}>🖼️</Text>
             </TouchableOpacity>
             
             <TextInput
@@ -240,6 +237,14 @@ export default function DashboardScreen({ navigation }: any) {
               onChangeText={setInputText}
               multiline
             />
+
+            {/* Quick Camera */}
+            <TouchableOpacity 
+              style={styles.secondaryIcon}
+              onPress={openCamera}
+            >
+              <Text style={styles.iconText}>📷</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity 
               style={[styles.micIcon, isRecording && styles.micIconRecording]}
@@ -402,6 +407,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: COLORS.primary + '11',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
   },

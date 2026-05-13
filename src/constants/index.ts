@@ -33,7 +33,7 @@ export const SPACING = {
 export const PAYMENT_METHODS = [
   { label: 'Cash', value: 'cash', icon: '💵' },
   { label: 'Card', value: 'card', icon: '💳' },
-  { label: 'UPI', value: 'upi', icon: '📱' },
+  { label: 'DigitalWallet', value: 'digital_wallet', icon: '📱' },
   { label: 'Bank Transfer', value: 'bank_transfer', icon: '🏦' },
   { label: 'Other', value: 'other', icon: '📦' },
 ]

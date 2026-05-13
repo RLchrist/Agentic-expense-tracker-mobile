@@ -15,6 +15,7 @@ interface ExpenseState {
   error: string | null
   fetchExpenses: () => Promise<void>
   fetchCategories: () => Promise<void>
+  addCategory: (category: { name: string; icon: string; color: string }) => Promise<Category | null>
   addExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
   getTotalByPeriod: (period: 'today' | 'week' | 'month') => number
@@ -62,6 +63,28 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     } catch {
       // Network unavailable — cached data is already loaded above
     }
+  },
+
+  addCategory: async (category) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return null
+
+    const payload = { ...category, user_id: session.user.id }
+    const { data, error } = await supabase
+      .from('categories')
+      .insert(payload)
+      .select()
+      .single()
+
+    if (!error && data) {
+      set((state) => {
+        const newCats = [...state.categories, data]
+        cacheStorage.set(CATEGORIES_CACHE_KEY, JSON.stringify(newCats))
+        return { categories: newCats }
+      })
+      return data
+    }
+    return null
   },
 
 addExpense: async (expense) => {

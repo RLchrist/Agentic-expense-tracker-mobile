@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
-  ActivityIndicator, Animated, Alert, TextInput, ScrollView
+  ActivityIndicator, Animated, Alert, TextInput, ScrollView,
+  PanResponder, Dimensions, Platform
 } from 'react-native'
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS, SPACING, PAYMENT_METHODS } from '../../constants'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { useExpenseStore } from '../../store/expenseStore'
+import { Category } from '../../types'
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window')
+const MIN_SHEET_HEIGHT = SCREEN_HEIGHT * 0.6
+const MAX_SHEET_HEIGHT = SCREEN_HEIGHT * 0.92
 
 interface Props {
   visible: boolean
@@ -23,16 +29,68 @@ type Stage = 'idle' | 'recording' | 'transcribing' | 'parsing' | 'preview' | 'sa
 export default function VoiceExpenseModal({ visible, onClose, onSaved, initialParsed }: Props) {
   const { categories, addExpense } = useExpenseStore()
   const [stage, setStage] = useState<Stage>('idle')
+  
+  // Animation & Pan states
+  const sheetHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current
+  const [isFullPage, setIsFullPage] = useState(false)
 
   useEffect(() => {
     if (initialParsed) {
       setParsed(initialParsed)
       setStage('preview')
+      Animated.spring(sheetHeight, {
+        toValue: SCREEN_HEIGHT * 0.8,
+        useNativeDriver: false,
+      }).start()
     }
   }, [initialParsed])
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        // dy is negative when pulling up
+        const newHeight = Math.max(MIN_SHEET_HEIGHT, Math.min(MAX_SHEET_HEIGHT, MIN_SHEET_HEIGHT - gestureState.dy))
+        sheetHeight.setValue(newHeight)
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -50) {
+          Animated.spring(sheetHeight, {
+            toValue: MAX_SHEET_HEIGHT,
+            useNativeDriver: false,
+          }).start(() => setIsFullPage(true))
+        } else if (gestureState.dy > 50) {
+          if (isFullPage) {
+            Animated.spring(sheetHeight, {
+              toValue: MIN_SHEET_HEIGHT,
+              useNativeDriver: false,
+            }).start(() => setIsFullPage(false))
+          } else {
+            handleClose()
+          }
+        } else {
+          Animated.spring(sheetHeight, {
+            toValue: isFullPage ? MAX_SHEET_HEIGHT : MIN_SHEET_HEIGHT,
+            useNativeDriver: false,
+          }).start()
+        }
+      },
+    })
+  ).current
+  
   const [textInput, setTextInput] = useState('')
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
   const [realtimeTranscript, setRealtimeTranscript] = useState('')
+  const [isEditingCategory, setIsEditingCategory] = useState(false)
+  const [isEditingPayment, setIsEditingPayment] = useState(false)
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatIcon, setNewCatIcon] = useState('📦')
+  const [customPayments, setCustomPayments] = useState(PAYMENT_METHODS)
+  const [isAddingPayment, setIsAddingPayment] = useState(false)
+  const [newPaymentName, setNewPaymentName] = useState('')
+  
   const recognitionActive = useRef(false)
   const pulseAnim = useRef(new Animated.Value(1)).current
 
@@ -55,7 +113,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     const transcript = event.results[0]?.transcript
     if (transcript) {
       setRealtimeTranscript(transcript)
-      // If this is a final result, auto-parse
       if (event.isFinal && stage === 'recording') {
         setStage('parsing')
         stopPulse()
@@ -67,7 +124,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   useSpeechRecognitionEvent('end', () => {
     if (stage === 'recording') {
       stopPulse()
-      // If we have a transcript, parse it
       if (realtimeTranscript.trim()) {
         setStage('parsing')
         handleTranscriptionResult(realtimeTranscript)
@@ -81,7 +137,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     stopPulse()
     setStage('idle')
     const errorCode = String(event.error || '').toLowerCase();
-    // Silently ignore 'no-speech' and 'aborted' errors
     if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
       return
     }
@@ -129,6 +184,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       if (result) {
         setParsed(result)
         setStage('preview')
+        Animated.spring(sheetHeight, { toValue: SCREEN_HEIGHT * 0.8, useNativeDriver: false }).start()
       } else {
         setStage('idle')
         Alert.alert('Error', 'Could not understand the expense.')
@@ -137,25 +193,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       console.error('Parsing failed', e)
       setStage('idle')
     }
-  }
-
-  const parseWithAI = async (text: string) => {
-    if (!text.trim()) {
-      Alert.alert('Error', 'Please enter some text')
-      return
-    }
-
-    setStage('parsing')
-    const result = await parseExpenseFromText(text, categories)
-
-    if (!result) {
-      Alert.alert('Error', 'Could not parse expense. Try again.')
-      setStage('idle')
-      return
-    }
-
-    setParsed(result)
-    setStage('preview')
   }
 
   const handleSave = async () => {
@@ -182,26 +219,50 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     onClose()
   }
 
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return
+    const { addCategory } = useExpenseStore.getState()
+    const newCat = await addCategory({
+      name: newCatName,
+      icon: newCatIcon,
+      color: COLORS.primary,
+    })
+    if (newCat && parsed) {
+      setParsed({ ...parsed, category_id: newCat.id, category_name: newCat.name })
+      setIsAddingCategory(false)
+      setIsEditingCategory(false)
+      setNewCatName('')
+    }
+  }
+
+  const handleAddCustomPayment = () => {
+    if (!newPaymentName.trim()) return
+    const newMethod = { label: newPaymentName, value: newPaymentName.toLowerCase().replace(/\s+/g, '_'), icon: '💳' }
+    setCustomPayments(prev => [...prev, newMethod])
+    if (parsed) {
+      setParsed({ ...parsed, payment_method: newMethod.label })
+    }
+    setIsAddingPayment(false)
+    setIsEditingPayment(false)
+    setNewPaymentName('')
+  }
+
   const handleClose = () => {
     setStage('idle')
     setTextInput('')
     setParsed(null)
+    sheetHeight.setValue(MIN_SHEET_HEIGHT)
+    setIsFullPage(false)
     onClose()
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={handleClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          {/* Handle bar */}
-          <View style={styles.handle} />
-
-          {/* Header */}
+        <Animated.View style={[styles.sheet, { height: sheetHeight }]}>
+          <View style={styles.handleContainer} {...panResponder.panHandlers}>
+            <View style={styles.handle} />
+          </View>
           <View style={styles.header}>
             <Text style={styles.title}>
               {stage === 'preview' ? '✨ AI Parsed Expense' : '🤖 AI Expense Input'}
@@ -211,8 +272,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Voice mode */}
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             {stage !== 'preview' && (
               <View style={styles.voiceSection}>
                 <Animated.View style={[styles.micOuter, { transform: [{ scale: pulseAnim }] }]}>
@@ -221,9 +281,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                     onPress={stage === 'recording' ? stopRecording : startRecording}
                     disabled={stage === 'transcribing' || stage === 'parsing'}
                   >
-                    <Text style={styles.micIcon}>
-                      {stage === 'recording' ? '⏹️' : '🎙️'}
-                    </Text>
+                    <Text style={styles.micIcon}>{stage === 'recording' ? '⏹️' : '🎙️'}</Text>
                   </TouchableOpacity>
                 </Animated.View>
 
@@ -235,184 +293,157 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
                 <Text style={styles.voiceHint}>
                   {stage === 'idle' && 'Tap mic and say your expense'}
-                  {stage === 'recording' && '🔴 Listening... tap to stop'}
-                  {stage === 'transcribing' && 'Processing audio...'}
+                  {stage === 'recording' && 'Listening...'}
                   {stage === 'parsing' && 'AI is parsing...'}
                 </Text>
-
-                {(stage === 'transcribing' || stage === 'parsing') && (
-                  <ActivityIndicator color={COLORS.primary} style={{ marginTop: SPACING.md }} />
-                )}
+                {stage === 'parsing' && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />}
               </View>
             )}
 
-            {/* AI Preview */}
             {stage === 'preview' && parsed && (
               <View style={styles.preview}>
-                <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceText}>
-                    {Math.round(parsed.confidence * 100)}% confident
-                  </Text>
+                <View style={styles.previewCard}>
+                  <View style={styles.editRow}>
+                    <Text style={styles.editLabel}>📝 Title</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={parsed.title}
+                      onChangeText={(t) => setParsed({ ...parsed, title: t })}
+                    />
+                  </View>
+                  <View style={styles.editRow}>
+                    <Text style={styles.editLabel}>💰 Amount</Text>
+                    <TextInput
+                      style={[styles.editInput, styles.amountInput]}
+                      value={String(parsed.amount)}
+                      keyboardType="numeric"
+                      onChangeText={(t) => setParsed({ ...parsed, amount: Number(t) || 0 })}
+                    />
+                  </View>
+                  <TouchableOpacity style={styles.editRow} onPress={() => setIsEditingCategory(true)}>
+                    <Text style={styles.editLabel}>🏷️ Category</Text>
+                    <Text style={styles.editValue}>{parsed.category_name || 'Select'}</Text>
+                    <Text style={styles.chevron}>›</Text>
+                  </TouchableOpacity>
+                  <View style={styles.editRow}>
+                    <Text style={styles.editLabel}>📅 Date</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={parsed.expense_date}
+                      onChangeText={(t) => setParsed({ ...parsed, expense_date: t })}
+                    />
+                  </View>
+                  <TouchableOpacity style={styles.editRow} onPress={() => setIsEditingPayment(true)}>
+                    <Text style={styles.editLabel}>💳 Payment</Text>
+                    <Text style={styles.editValue}>{parsed.payment_method}</Text>
+                    <Text style={styles.chevron}>›</Text>
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.previewCard}>
-                  <PreviewRow label="📝 Title" value={parsed.title} />
-                  <PreviewRow
-                    label="💰 Amount"
-                    value={`Rs. ${parsed.amount.toLocaleString('en-NP')}`}
-                    highlight
-                  />
-                  <PreviewRow label="🏷️ Category" value={parsed.category_name} />
-                  <PreviewRow label="📅 Date" value={parsed.expense_date} />
-                  <PreviewRow label="💳 Payment" value={parsed.payment_method} />
-                  {parsed.note && <PreviewRow label="📌 Note" value={parsed.note} />}
-                </View>
+                {/* Sub-modals for selection */}
+                {isEditingCategory && (
+                  <View style={styles.selectionOverlay}>
+                    <View style={styles.selectionSheet}>
+                      <Text style={styles.selectionTitle}>Select Category</Text>
+                      <ScrollView style={{maxHeight: 300}}>
+                        {categories.map(cat => (
+                          <TouchableOpacity key={cat.id} style={styles.selectionItem} onPress={() => { setParsed({...parsed, category_id: cat.id, category_name: cat.name}); setIsEditingCategory(false) }}>
+                            <Text style={styles.itemIcon}>{cat.icon}</Text>
+                            <Text style={styles.itemLabel}>{cat.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                        {isAddingCategory ? (
+                          <View style={styles.newItemForm}>
+                            <TextInput style={styles.newItemInput} value={newCatName} onChangeText={setNewCatName} placeholder="Category Name" placeholderTextColor="#999" />
+                            <TouchableOpacity style={styles.addConfirmBtn} onPress={handleCreateCategory}><Text style={styles.addConfirmText}>Create</Text></TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddingCategory(true)}><Text style={styles.addBtnText}>+ New Category</Text></TouchableOpacity>
+                        )}
+                      </ScrollView>
+                      <TouchableOpacity onPress={() => setIsEditingCategory(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {isEditingPayment && (
+                  <View style={styles.selectionOverlay}>
+                    <View style={styles.selectionSheet}>
+                      <Text style={styles.selectionTitle}>Select Payment</Text>
+                      <ScrollView style={{maxHeight: 300}}>
+                        {customPayments.map(p => (
+                          <TouchableOpacity key={p.value} style={styles.selectionItem} onPress={() => { setParsed({...parsed, payment_method: p.label}); setIsEditingPayment(false) }}>
+                            <Text style={styles.itemIcon}>{p.icon}</Text>
+                            <Text style={styles.itemLabel}>{p.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                        {isAddingPayment ? (
+                          <View style={styles.newItemForm}>
+                            <TextInput style={styles.newItemInput} value={newPaymentName} onChangeText={setNewPaymentName} placeholder="Payment Name" placeholderTextColor="#999" />
+                            <TouchableOpacity style={styles.addConfirmBtn} onPress={handleAddCustomPayment}><Text style={styles.addConfirmText}>Add</Text></TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddingPayment(true)}><Text style={styles.addBtnText}>+ Custom Payment</Text></TouchableOpacity>
+                        )}
+                      </ScrollView>
+                      <TouchableOpacity onPress={() => setIsEditingPayment(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 <View style={styles.previewActions}>
-                  <TouchableOpacity
-                    style={styles.retryBtn}
-                    onPress={() => { setParsed(null); setStage('idle') }}
-                  >
-                    <Text style={styles.retryText}>← Try Again</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.saveBtn, stage === 'saving' && styles.saveBtnDisabled]}
-                    onPress={handleSave}
-                    disabled={stage === 'saving'}
-                  >
-                    {stage === 'saving'
-                      ? <ActivityIndicator color={COLORS.white} />
-                      : <Text style={styles.saveBtnText}>Save Expense ✓</Text>
-                    }
-                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => setStage('idle')}><Text style={styles.retryText}>Retry</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleSave}><Text style={styles.saveBtnText}>Save ✓</Text></TouchableOpacity>
                 </View>
               </View>
             )}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )
 }
 
-function PreviewRow({
-  label, value, highlight
-}: {
-  label: string; value: string; highlight?: boolean
-}) {
-  return (
-    <View style={previewStyles.row}>
-      <Text style={previewStyles.label}>{label}</Text>
-      <Text style={[previewStyles.value, highlight && previewStyles.highlight]}>
-        {value}
-      </Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: COLORS.surface, borderTopLeftRadius: 24,
-    borderTopRightRadius: 24, padding: SPACING.lg,
-    maxHeight: '90%', minHeight: '60%',
-  },
-  handle: {
-    width: 40, height: 4, backgroundColor: COLORS.border,
-    borderRadius: 2, alignSelf: 'center', marginBottom: SPACING.md,
-  },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: SPACING.lg,
-  },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, paddingBottom: 40 },
+  handleContainer: { width: '100%', height: 30, justifyContent: 'center', alignItems: 'center', marginTop: -10 },
+  handle: { width: 40, height: 5, backgroundColor: COLORS.border, borderRadius: 3 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
   title: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  closeBtn: { color: COLORS.textSecondary, fontSize: 20, padding: SPACING.xs },
-  voiceSection: { alignItems: 'center', paddingVertical: SPACING.xl },
-  micOuter: {
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: COLORS.primary + '22',
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  micBtn: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
-  },
+  closeBtn: { color: COLORS.textSecondary, fontSize: 20 },
+  voiceSection: { alignItems: 'center', paddingVertical: 20 },
+  micOuter: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary + '22', justifyContent: 'center', alignItems: 'center' },
+  micBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   micBtnRecording: { backgroundColor: COLORS.error },
-  micIcon: { fontSize: 36 },
-  realtimeContainer: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: SPACING.md,
-    width: '100%',
-    marginBottom: SPACING.lg,
-    minHeight: 60,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  realtimeText: {
-    color: COLORS.text,
-    fontSize: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  voiceHint: { color: COLORS.textSecondary, fontSize: 15, textAlign: 'center' },
-  textSection: { gap: SPACING.md },
-  textHint: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
-  example: {
-    color: COLORS.textSecondary, fontSize: 13,
-    fontStyle: 'italic', marginTop: -SPACING.xs,
-  },
-  textArea: {
-    backgroundColor: COLORS.background, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: SPACING.md, color: COLORS.text,
-    fontSize: 16, minHeight: 90, textAlignVertical: 'top',
-  },
-  parseBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center',
-  },
-  parseBtnDisabled: { opacity: 0.7 },
-  parseBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-  preview: { gap: SPACING.md },
-  confidenceBadge: {
-    alignSelf: 'center', backgroundColor: COLORS.success + '33',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-    borderRadius: 20, borderWidth: 1, borderColor: COLORS.success,
-  },
-  confidenceText: { color: COLORS.success, fontWeight: '600', fontSize: 13 },
-  previewCard: {
-    backgroundColor: COLORS.background, borderRadius: 14,
-    padding: SPACING.md, gap: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  previewActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  retryBtn: {
-    flex: 1, backgroundColor: COLORS.surface, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
+  micIcon: { fontSize: 30 },
+  realtimeContainer: { width: '100%', padding: 15, backgroundColor: COLORS.background, borderRadius: 12, marginVertical: 20 },
+  realtimeText: { color: COLORS.text, fontSize: 16, textAlign: 'center' },
+  voiceHint: { color: COLORS.textSecondary, marginTop: 10 },
+  preview: { gap: 15 },
+  previewCard: { backgroundColor: COLORS.background, borderRadius: 12, padding: 15, borderWidth: 1, borderColor: COLORS.border },
+  editRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  editLabel: { width: 80, color: COLORS.textSecondary, fontSize: 13 },
+  editInput: { flex: 1, color: COLORS.text, fontSize: 15, fontWeight: '500' },
+  amountInput: { fontSize: 18, color: COLORS.primary, fontWeight: 'bold' },
+  editValue: { flex: 1, color: COLORS.text, fontSize: 15 },
+  chevron: { color: COLORS.textSecondary, fontSize: 18 },
+  previewActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  retryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   retryText: { color: COLORS.textSecondary, fontWeight: '600' },
-  saveBtn: {
-    flex: 2, backgroundColor: COLORS.primary,
-    borderRadius: 12, padding: SPACING.md, alignItems: 'center',
-  },
-  saveBtnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-})
-
-const previewStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingVertical: SPACING.xs,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  label: { color: COLORS.textSecondary, fontSize: 14 },
-  value: { color: COLORS.text, fontSize: 14, fontWeight: '500', flex: 1, textAlign: 'right' },
-  highlight: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' },
+  saveBtn: { flex: 2, padding: 15, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center' },
+  saveBtnText: { color: COLORS.white, fontWeight: 'bold' },
+  selectionOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20, zIndex: 1000 },
+  selectionSheet: { backgroundColor: COLORS.surface, borderRadius: 15, padding: 20 },
+  selectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  selectionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  itemIcon: { fontSize: 20, marginRight: 15 },
+  itemLabel: { color: COLORS.text, fontSize: 16 },
+  cancelText: { color: COLORS.error, textAlign: 'center', marginTop: 15, fontWeight: '600' },
+  addBtn: { padding: 12, borderRadius: 8, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.primary, marginTop: 10, alignItems: 'center' },
+  addBtnText: { color: COLORS.primary, fontWeight: '600' },
+  newItemForm: { marginTop: 10, padding: 10, backgroundColor: COLORS.background, borderRadius: 8 },
+  newItemInput: { color: COLORS.text, borderBottomWidth: 1, borderBottomColor: COLORS.primary, paddingVertical: 5, marginBottom: 10 },
+  addConfirmBtn: { backgroundColor: COLORS.primary, padding: 8, borderRadius: 5, alignItems: 'center' },
+  addConfirmText: { color: COLORS.white, fontWeight: 'bold' }
 })
