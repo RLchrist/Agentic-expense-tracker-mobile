@@ -11,12 +11,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { text, categories } = await req.json()
-
-    if (!text) {
+    let body;
+    try {
+      body = await req.json();
+    } catch (err) {
       return new Response(
-        JSON.stringify({ error: 'No text provided' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Invalid JSON body', details: String(err) }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { text, categories, images } = body;
+
+    if (!text && (!images || images.length === 0)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'No text or images provided' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -24,8 +34,8 @@ Deno.serve(async (req) => {
 
     if (!groqKey) {
       return new Response(
-        JSON.stringify({ error: 'GROQ_API_KEY not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'GROQ_API_KEY not configured' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -35,30 +45,48 @@ Deno.serve(async (req) => {
 
     const today = new Date().toISOString().split('T')[0]
 
-    const prompt = `You are an expense parsing assistant. Extract expense details from natural language.
+    const prompt = `You are an AI expense parser. Extract the following from the input:
+- title: short description
+- amount: total number
+- category: matched from the list
+- date: YYYY-MM-DD
+- payment: method (default: cash)
 
-Today's date: ${today}
-Available categories: ${categoryList}
-User input: "${text}"
+Categories: ${categoryList}
+Today: ${today}
 
-Return ONLY a raw JSON object, no markdown, no backticks, no explanation:
+Input text: "${text || 'No text provided'}"
+
+Output raw JSON:
 {
-  "title": "short descriptive title",
+  "title": "",
   "amount": 0,
-  "category_name": "matched category name",
-  "category_id": "matched category id",
-  "expense_date": "YYYY-MM-DD",
+  "category_name": "",
+  "category_id": "",
+  "expense_date": "",
   "payment_method": "cash",
   "note": null,
   "confidence": 0.9
-}
+}`
 
-Rules:
-- amount must be a number, no currency symbols
-- match category intelligently (bus/taxi/fare = Transport, lunch/food/restaurant = Food & Dining)
-- default payment_method to "cash" if not mentioned
-- default expense_date to today if not mentioned
-- confidence between 0 and 1`
+    const hasImages = images && images.length > 0
+    // Try the full name as per developer docs
+    const model = hasImages ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile'
+
+    let userContent: any
+    if (hasImages) {
+      userContent = [
+        { type: 'text', text: prompt },
+        ...images.map((base64: string) => ({
+          type: 'image_url',
+          image_url: { url: `data:image/jpeg;base64,${base64}` }
+        }))
+      ]
+    } else {
+      userContent = prompt
+    }
+
+    console.log(`Calling Groq with model ${model}, hasImages: ${hasImages}`)
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -67,48 +95,67 @@ Rules:
         'Authorization': `Bearer ${groqKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model,
         messages: [
           {
-            role: 'system',
-            content: 'You are an expense parsing assistant. Always respond with valid raw JSON only. No markdown. No explanation.',
-          },
-          {
             role: 'user',
-            content: prompt,
+            content: userContent,
           },
         ],
         temperature: 0.1,
-        max_tokens: 512,
+        max_tokens: 1024,
       }),
     })
 
     if (!response.ok) {
       const errText = await response.text()
       console.error('Groq API error:', response.status, errText)
+      
+      // If model not found, try to list available models for debugging
+      let availableModels = []
+      try {
+        const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+          headers: { 'Authorization': `Bearer ${groqKey}` }
+        })
+        if (modelsRes.ok) {
+          const modelsData = await modelsRes.json()
+          availableModels = modelsData.data?.map((m: any) => m.id) || []
+        }
+      } catch (e) {
+        console.error('Failed to list models:', e)
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Groq API failed', details: errText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Groq API failed', 
+          status: response.status, 
+          details: errText,
+          model_used: model,
+          available_models: availableModels
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const groqData = await response.json()
     const rawText = groqData.choices?.[0]?.message?.content ?? ''
 
-    console.log('Groq raw response:', rawText)
-
     if (!rawText) {
       return new Response(
-        JSON.stringify({ error: 'Empty response from Groq' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Empty response from Groq' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Clean any accidental markdown
-    const cleaned = rawText
-      .replace(/```json/gi, '')
-      .replace(/```/g, '')
-      .trim()
+    // More robust JSON extraction
+    let cleaned = rawText
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      cleaned = jsonMatch[0]
+    } else {
+      cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim()
+    }
 
     let parsed
     try {
@@ -116,21 +163,26 @@ Rules:
     } catch (parseErr) {
       console.error('JSON parse failed:', cleaned)
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON from Groq', raw: cleaned }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid JSON from Groq', 
+          details: cleaned,
+          raw_full: rawText 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     return new Response(
       JSON.stringify({ success: true, data: parsed }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'Parsing failed', details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: 'Parsing failed', details: String(error) }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

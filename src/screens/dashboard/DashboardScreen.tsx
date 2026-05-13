@@ -254,11 +254,16 @@ export default function DashboardScreen({ navigation }: any) {
                 onPress={async () => {
                   if (isParsing) return
                   setIsParsing(true)
-                  const result = await parseExpenseFromText(inputText, useExpenseStore.getState().categories)
+                  const result = await parseExpenseFromText(
+                    inputText, 
+                    useExpenseStore.getState().categories,
+                    attachedImages
+                  )
                   setIsParsing(false)
                   if (result) {
                     setParsedResult(result)
                     setShowAI(true)
+                    setAttachedImages([]) // Clear images after successful send
                   } else {
                     Alert.alert('Error', 'Could not understand the expense. Please try again.')
                   }
