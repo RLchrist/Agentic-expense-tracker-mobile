@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Modal, Platform
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
@@ -24,6 +24,7 @@ export default function DashboardScreen({ navigation }: any) {
   const [isParsing, setIsParsing] = useState(false)
   const [attachedImages, setAttachedImages] = useState<string[]>([])
   const [isRecording, setIsRecording] = useState(false)
+  const [showActionMenu, setShowActionMenu] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
   const { profile, signOut } = useAuthStore()
   const {
@@ -197,6 +198,32 @@ export default function DashboardScreen({ navigation }: any) {
 
         {/* Gemini-style Input Bar */}
         <View style={styles.inputContainer}>
+          {showActionMenu && (
+            <View style={styles.geminiMenu}>
+              <TouchableOpacity 
+                style={styles.geminiItem}
+                onPress={() => {
+                  setShowActionMenu(false)
+                  navigation.navigate('AddExpense')
+                }}
+              >
+                <Text style={styles.geminiIcon}>📝</Text>
+                <Text style={styles.geminiText}>Manual Add</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.geminiItem}
+                onPress={() => {
+                  setShowActionMenu(false)
+                  openGallery()
+                }}
+              >
+                <Text style={styles.geminiIcon}>🖼️</Text>
+                <Text style={styles.geminiText}>Photos & Files</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {attachedImages.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
               {attachedImages.map((uri, idx) => (
@@ -213,20 +240,11 @@ export default function DashboardScreen({ navigation }: any) {
             </ScrollView>
           )}
           <View style={styles.inputBar}>
-            {/* Manual Entry Button */}
             <TouchableOpacity 
               style={styles.actionIcon}
-              onPress={() => navigation.navigate('AddExpense')}
+              onPress={() => setShowActionMenu(!showActionMenu)}
             >
-              <Text style={styles.iconText}>📝</Text>
-            </TouchableOpacity>
-
-            {/* Gallery Button */}
-            <TouchableOpacity 
-              style={styles.actionIcon}
-              onPress={openGallery}
-            >
-              <Text style={styles.iconText}>🖼️</Text>
+              <Text style={styles.iconText}>➕</Text>
             </TouchableOpacity>
             
             <TextInput
@@ -479,6 +497,40 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: SPACING.sm },
   emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
   emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
+  
+  // Gemini-style Menu
+  geminiMenu: {
+    position: 'absolute',
+    bottom: 70, // Positioned relative to inputContainer
+    left: 0,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    width: 200,
+    padding: SPACING.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  geminiItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  geminiIcon: {
+    fontSize: 20,
+    color: COLORS.white,
+  },
+  geminiText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '500',
+  },
 })
 
 const itemStyles = StyleSheet.create({
