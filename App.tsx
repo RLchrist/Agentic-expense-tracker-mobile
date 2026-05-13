@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import NetInfo from '@react-native-community/netinfo'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { supabase } from './src/services/supabase/client'
 import { useAuthStore } from './src/store/authStore'
 import RootNavigator from './src/navigation/RootNavigator'
@@ -43,9 +44,9 @@ export default function App() {
   }, [])
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="light" />
       <RootNavigator />
-    </>
+    </SafeAreaProvider>
   )
 }

@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { Text } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
 import BudgetsScreen from '../screens/dashboard/BudgetsScreen'
@@ -14,6 +15,7 @@ const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
 function HomeTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -21,7 +23,9 @@ function HomeTabs() {
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
-          paddingBottom: 8, paddingTop: 8, height: 60,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
