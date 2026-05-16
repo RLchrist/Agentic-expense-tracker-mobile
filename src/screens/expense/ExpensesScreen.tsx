@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, FlatList, TouchableOpacity,
   RefreshControl, Alert, TextInput
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Plus, Search, X, Trash2, List, FileText } from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS } from '../../constants'
 import { Expense } from '../../types'
 
 export default function ExpensesScreen({ navigation }: any) {
@@ -60,23 +61,24 @@ export default function ExpensesScreen({ navigation }: any) {
   ]
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Expenses</Text>
+      <View className="flex-row justify-between items-center p-6 pb-2">
+        <Text className="text-[26px] font-bold text-text">Expenses</Text>
         <TouchableOpacity
-          style={styles.addBtn}
+          className="flex-row items-center bg-primary rounded-xl px-4 py-2"
           onPress={() => navigation.navigate('AddExpense')}
         >
-          <Text style={styles.addBtnText}>+ Add</Text>
+          <Plus size={16} color={COLORS.white} className="mr-1" />
+          <Text className="text-white font-bold text-sm">Add</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
-      <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>🔍</Text>
+      <View className="flex-row items-center bg-surface rounded-xl mx-6 mb-2 px-4 border border-border">
+        <Search size={16} color={COLORS.textSecondary} className="mr-2" />
         <TextInput
-          style={styles.searchInput}
+          className="flex-1 text-text text-[15px] py-2"
           placeholder="Search expenses..."
           placeholderTextColor={COLORS.textSecondary}
           value={search}
@@ -84,26 +86,20 @@ export default function ExpensesScreen({ navigation }: any) {
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 18 }}>×</Text>
+            <X size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Filter chips */}
-      <View style={styles.filterRow}>
+      <View className="flex-row gap-2 px-6 mb-2">
         {FILTERS.map((f) => (
           <TouchableOpacity
             key={f.key}
-            style={[
-              styles.filterChip,
-              selectedFilter === f.key && styles.filterChipActive
-            ]}
+            className={`px-4 py-1.5 rounded-full border ${selectedFilter === f.key ? 'bg-primary border-primary' : 'bg-surface border-border'}`}
             onPress={() => setSelectedFilter(f.key as any)}
           >
-            <Text style={[
-              styles.filterText,
-              selectedFilter === f.key && styles.filterTextActive
-            ]}>
+            <Text className={`text-[13px] font-medium ${selectedFilter === f.key ? 'text-white' : 'text-textSecondary'}`}>
               {f.label}
             </Text>
           </TouchableOpacity>
@@ -111,26 +107,20 @@ export default function ExpensesScreen({ navigation }: any) {
       </View>
 
       {/* Category Filter */}
-      <View style={{ marginBottom: SPACING.sm }}>
+      <View className="mb-2">
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
           data={[{ id: null, name: 'All Categories', icon: '📦' }, ...useExpenseStore.getState().categories]}
           keyExtractor={(item) => item.id ?? 'all'}
-          contentContainerStyle={{ paddingHorizontal: SPACING.lg, gap: SPACING.xs }}
+          contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[
-                styles.catChip,
-                selectedCategory === item.id && styles.catChipActive
-              ]}
+              className={`flex-row items-center px-4 py-1.5 rounded-full border ${selectedCategory === item.id ? 'bg-primary border-primary' : 'bg-surface border-border'}`}
               onPress={() => setSelectedCategory(item.id)}
             >
-              <Text style={styles.catChipIcon}>{item.icon}</Text>
-              <Text style={[
-                styles.catChipText,
-                selectedCategory === item.id && styles.catChipTextActive
-              ]}>
+              <Text className="mr-1.5 text-base">{item.icon}</Text>
+              <Text className={`text-[13px] font-medium ${selectedCategory === item.id ? 'text-white' : 'text-textSecondary'}`}>
                 {item.name}
               </Text>
             </TouchableOpacity>
@@ -139,11 +129,11 @@ export default function ExpensesScreen({ navigation }: any) {
       </View>
 
       {/* Summary bar */}
-      <View style={styles.summaryBar}>
-        <Text style={styles.summaryText}>
+      <View className="flex-row justify-between px-6 py-2 bg-surface mx-6 rounded-xl mb-2 border border-border">
+        <Text className="text-textSecondary text-[13px]">
           {filtered.length} expense{filtered.length !== 1 ? 's' : ''}
         </Text>
-        <Text style={styles.summaryAmount}>
+        <Text className="text-text font-bold text-[13px]">
           Rs. {totalFiltered.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
         </Text>
       </View>
@@ -159,12 +149,12 @@ export default function ExpensesScreen({ navigation }: any) {
             tintColor={COLORS.primary}
           />
         }
-        contentContainerStyle={filtered.length === 0 ? styles.emptyContainer : styles.listContent}
+        contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { padding: 24, paddingTop: 8, gap: 8 }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🧾</Text>
-            <Text style={styles.emptyText}>No expenses found</Text>
-            <Text style={styles.emptySubtext}>
+          <View className="flex-1 items-center justify-center pt-20">
+            <List size={52} color={COLORS.textSecondary} className="mb-2" />
+            <Text className="text-text text-lg font-bold">No expenses found</Text>
+            <Text className="text-textSecondary text-sm mt-1">
               {search ? 'Try a different search' : 'Add your first expense'}
             </Text>
           </View>
@@ -185,110 +175,42 @@ function ExpenseRow({
   onDelete: (id: string) => void
 }) {
   return (
-    <View style={rowStyles.container}>
-      <View style={[rowStyles.iconBox, { backgroundColor: (expense.category?.color ?? '#888') + '33' }]}>
-        <Text style={rowStyles.icon}>{expense.category?.icon ?? '📦'}</Text>
+    <View className="flex-row items-center bg-surface rounded-2xl p-4 border border-border">
+      <View 
+        className="w-[46px] h-[46px] rounded-xl justify-center items-center" 
+        style={{ backgroundColor: (expense.category?.color ?? '#888') + '33' }}
+      >
+        <Text className="text-[22px]">{expense.category?.icon ?? '📦'}</Text>
       </View>
 
-      <View style={rowStyles.info}>
-        <Text style={rowStyles.title} numberOfLines={1}>{expense.title}</Text>
-        <View style={rowStyles.meta}>
-          <Text style={rowStyles.category}>{expense.category?.name ?? 'Uncategorized'}</Text>
-          <Text style={rowStyles.dot}>·</Text>
-          <Text style={rowStyles.date}>{expense.expense_date}</Text>
-          <Text style={rowStyles.dot}>·</Text>
-          <Text style={rowStyles.payment}>{expense.payment_method}</Text>
+      <View className="flex-1 ml-3">
+        <Text className="text-text font-semibold text-[15px]" numberOfLines={1}>{expense.title}</Text>
+        <View className="flex-row items-center mt-1 flex-wrap">
+          <Text className="text-textSecondary text-[12px]">{expense.category?.name ?? 'Uncategorized'}</Text>
+          <Text className="text-border mx-1 text-[12px]">·</Text>
+          <Text className="text-textSecondary text-[12px]">{expense.expense_date}</Text>
+          <Text className="text-border mx-1 text-[12px]">·</Text>
+          <Text className="text-textSecondary text-[12px] uppercase">{expense.payment_method}</Text>
         </View>
         {expense.note ? (
-          <Text style={rowStyles.note} numberOfLines={1}>📝 {expense.note}</Text>
+          <View className="flex-row items-center mt-1">
+            <FileText size={10} color={COLORS.textSecondary} className="mr-1" />
+            <Text className="text-textSecondary text-[11px]" numberOfLines={1}>{expense.note}</Text>
+          </View>
         ) : null}
       </View>
 
-      <View style={rowStyles.right}>
-        <Text style={rowStyles.amount}>
+      <View className="items-end gap-1">
+        <Text className="text-text font-bold text-sm">
           Rs.{Number(expense.amount).toLocaleString('en-NP')}
         </Text>
         <TouchableOpacity
           onPress={() => onDelete(expense.id)}
-          style={rowStyles.deleteBtn}
+          className="p-1"
         >
-          <Text style={rowStyles.deleteText}>🗑️</Text>
+          <Trash2 size={16} color={COLORS.error} />
         </TouchableOpacity>
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', padding: SPACING.lg, paddingBottom: SPACING.sm,
-  },
-  title: { fontSize: 26, fontWeight: 'bold', color: COLORS.text },
-  addBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 10,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-  },
-  addBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 14 },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: 12,
-    marginHorizontal: SPACING.lg, marginBottom: SPACING.sm,
-    paddingHorizontal: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  searchIcon: { fontSize: 16, marginRight: SPACING.xs },
-  searchInput: { flex: 1, color: COLORS.text, fontSize: 15, paddingVertical: SPACING.sm },
-  filterRow: {
-    flexDirection: 'row', gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm,
-  },
-  filterChip: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-    borderRadius: 20, backgroundColor: COLORS.surface,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '500' },
-  filterTextActive: { color: COLORS.white },
-  summaryBar: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.xs,
-    backgroundColor: COLORS.surface, marginHorizontal: SPACING.lg,
-    borderRadius: 10, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  summaryText: { color: COLORS.textSecondary, fontSize: 13 },
-  summaryAmount: { color: COLORS.text, fontWeight: 'bold', fontSize: 13 },
-  listContent: { padding: SPACING.lg, paddingTop: SPACING.sm, gap: SPACING.sm },
-  emptyContainer: { flex: 1 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-  emptyEmoji: { fontSize: 52, marginBottom: SPACING.sm },
-  emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
-})
-
-const rowStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: 14,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  iconBox: {
-    width: 46, height: 46, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  icon: { fontSize: 22 },
-  info: { flex: 1, marginLeft: SPACING.sm },
-  title: { color: COLORS.text, fontWeight: '600', fontSize: 15 },
-  meta: { flexDirection: 'row', alignItems: 'center', marginTop: 3, flexWrap: 'wrap' },
-  category: { color: COLORS.textSecondary, fontSize: 12 },
-  dot: { color: COLORS.border, marginHorizontal: 4, fontSize: 12 },
-  date: { color: COLORS.textSecondary, fontSize: 12 },
-  payment: { color: COLORS.textSecondary, fontSize: 12 },
-  note: { color: COLORS.textSecondary, fontSize: 11, marginTop: 2 },
-  right: { alignItems: 'flex-end', gap: SPACING.xs },
-  amount: { color: COLORS.text, fontWeight: 'bold', fontSize: 14 },
-  deleteBtn: { padding: 2 },
-  deleteText: { fontSize: 15 },
-})

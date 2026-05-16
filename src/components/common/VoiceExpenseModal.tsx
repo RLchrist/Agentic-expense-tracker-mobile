@@ -1,17 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity,
+  View, Text, Modal, TouchableOpacity,
   ActivityIndicator, Animated, Alert, TextInput, ScrollView,
-  PanResponder, Dimensions, Platform
+  PanResponder, Dimensions
 } from 'react-native'
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition'
-import { COLORS, SPACING, PAYMENT_METHODS } from '../../constants'
+import { 
+  Sparkles, X, Mic, Square, FileText, 
+  Wallet, Tag, Calendar, CreditCard, 
+  ChevronRight, Check, Plus, Trash2 
+} from 'lucide-react-native'
+import { COLORS, PAYMENT_METHODS } from '../../constants'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { useExpenseStore } from '../../store/expenseStore'
-import { Category } from '../../types'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const MIN_SHEET_HEIGHT = SCREEN_HEIGHT * 0.6
@@ -79,14 +83,13 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     })
   ).current
   
-  const [textInput, setTextInput] = useState('')
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
   const [realtimeTranscript, setRealtimeTranscript] = useState('')
   const [isEditingCategory, setIsEditingCategory] = useState(false)
   const [isEditingPayment, setIsEditingPayment] = useState(false)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [newCatName, setNewCatName] = useState('')
-  const [newCatIcon, setNewCatIcon] = useState('📦')
+  const [newCatIcon] = useState('📦')
   const [customPayments, setCustomPayments] = useState(PAYMENT_METHODS)
   const [isAddingPayment, setIsAddingPayment] = useState(false)
   const [newPaymentName, setNewPaymentName] = useState('')
@@ -213,7 +216,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     })
 
     setStage('idle')
-    setTextInput('')
     setParsed(null)
     onSaved()
     onClose()
@@ -249,7 +251,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
   const handleClose = () => {
     setStage('idle')
-    setTextInput('')
     setParsed(null)
     sheetHeight.setValue(MIN_SHEET_HEIGHT)
     setIsFullPage(false)
@@ -258,142 +259,176 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <Animated.View style={[styles.sheet, { height: sheetHeight }]}>
-          <View style={styles.handleContainer} {...panResponder.panHandlers}>
-            <View style={styles.handle} />
+      <View className="flex-1 bg-black/60 justify-end">
+        <Animated.View className="bg-surface rounded-t-[24px] p-6 pb-10" style={{ height: sheetHeight }}>
+          <View className="w-full h-[30px] justify-center items-center -mt-2.5" {...panResponder.panHandlers}>
+            <View className="w-10 h-1.5 bg-border rounded-full" />
           </View>
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {stage === 'preview' ? '✨ AI Parsed Expense' : '🤖 AI Expense Input'}
-            </Text>
+          <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-row items-center gap-2">
+              <Sparkles size={20} color={COLORS.primary} />
+              <Text className="text-lg font-bold text-text">
+                {stage === 'preview' ? 'AI Parsed Expense' : 'AI Expense Input'}
+              </Text>
+            </View>
             <TouchableOpacity onPress={handleClose}>
-              <Text style={styles.closeBtn}>✕</Text>
+              <X size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             {stage !== 'preview' && (
-              <View style={styles.voiceSection}>
-                <Animated.View style={[styles.micOuter, { transform: [{ scale: pulseAnim }] }]}>
+              <View className="items-center py-5">
+                <Animated.View className="w-20 h-20 rounded-full bg-primary/15 justify-center items-center" style={{ transform: [{ scale: pulseAnim }] }}>
                   <TouchableOpacity
-                    style={[styles.micBtn, stage === 'recording' && styles.micBtnRecording]}
+                    className={`w-[60px] h-[60px] rounded-full bg-primary justify-center items-center ${stage === 'recording' ? 'bg-error' : ''}`}
                     onPress={stage === 'recording' ? stopRecording : startRecording}
                     disabled={stage === 'transcribing' || stage === 'parsing'}
                   >
-                    <Text style={styles.micIcon}>{stage === 'recording' ? '⏹️' : '🎙️'}</Text>
+                    {stage === 'recording' ? (
+                      <Square size={30} color={COLORS.white} />
+                    ) : (
+                      <Mic size={30} color={COLORS.white} />
+                    )}
                   </TouchableOpacity>
                 </Animated.View>
 
                 {realtimeTranscript !== '' && (
-                  <View style={styles.realtimeContainer}>
-                    <Text style={styles.realtimeText}>{realtimeTranscript}</Text>
+                  <View className="w-full p-4 bg-background rounded-xl my-5">
+                    <Text className="text-text text-base text-center">{realtimeTranscript}</Text>
                   </View>
                 )}
 
-                <Text style={styles.voiceHint}>
+                <Text className="text-textSecondary mt-2.5">
                   {stage === 'idle' && 'Tap mic and say your expense'}
                   {stage === 'recording' && 'Listening...'}
                   {stage === 'parsing' && 'AI is parsing...'}
                 </Text>
-                {stage === 'parsing' && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />}
+                {stage === 'parsing' && <ActivityIndicator color={COLORS.primary} className="mt-5" />}
               </View>
             )}
 
             {stage === 'preview' && parsed && (
-              <View style={styles.preview}>
-                <View style={styles.previewCard}>
-                  <View style={styles.editRow}>
-                    <Text style={styles.editLabel}>📝 Title</Text>
+              <View className="gap-4">
+                <View className="bg-background rounded-xl p-4 border border-border">
+                  <View className="flex-row items-center py-2.5 border-b border-border">
+                    <View className="w-24 flex-row items-center gap-1.5">
+                      <FileText size={14} color={COLORS.textSecondary} />
+                      <Text className="text-textSecondary text-[13px]">Title</Text>
+                    </View>
                     <TextInput
-                      style={styles.editInput}
+                      className="flex-1 text-text text-[15px] font-medium"
                       value={parsed.title}
                       onChangeText={(t) => setParsed({ ...parsed, title: t })}
                     />
                   </View>
-                  <View style={styles.editRow}>
-                    <Text style={styles.editLabel}>💰 Amount</Text>
+                  <View className="flex-row items-center py-2.5 border-b border-border">
+                    <View className="w-24 flex-row items-center gap-1.5">
+                      <Wallet size={14} color={COLORS.textSecondary} />
+                      <Text className="text-textSecondary text-[13px]">Amount</Text>
+                    </View>
                     <TextInput
-                      style={[styles.editInput, styles.amountInput]}
+                      className="flex-1 text-lg text-primary font-bold"
                       value={String(parsed.amount)}
                       keyboardType="numeric"
                       onChangeText={(t) => setParsed({ ...parsed, amount: Number(t) || 0 })}
                     />
                   </View>
-                  <TouchableOpacity style={styles.editRow} onPress={() => setIsEditingCategory(true)}>
-                    <Text style={styles.editLabel}>🏷️ Category</Text>
-                    <Text style={styles.editValue}>{parsed.category_name || 'Select'}</Text>
-                    <Text style={styles.chevron}>›</Text>
+                  <TouchableOpacity className="flex-row items-center py-2.5 border-b border-border" onPress={() => setIsEditingCategory(true)}>
+                    <View className="w-24 flex-row items-center gap-1.5">
+                      <Tag size={14} color={COLORS.textSecondary} />
+                      <Text className="text-textSecondary text-[13px]">Category</Text>
+                    </View>
+                    <Text className="flex-1 text-text text-[15px]">{parsed.category_name || 'Select'}</Text>
+                    <ChevronRight size={18} color={COLORS.textSecondary} />
                   </TouchableOpacity>
-                  <View style={styles.editRow}>
-                    <Text style={styles.editLabel}>📅 Date</Text>
+                  <View className="flex-row items-center py-2.5 border-b border-border">
+                    <View className="w-24 flex-row items-center gap-1.5">
+                      <Calendar size={14} color={COLORS.textSecondary} />
+                      <Text className="text-textSecondary text-[13px]">Date</Text>
+                    </View>
                     <TextInput
-                      style={styles.editInput}
+                      className="flex-1 text-text text-[15px] font-medium"
                       value={parsed.expense_date}
                       onChangeText={(t) => setParsed({ ...parsed, expense_date: t })}
                     />
                   </View>
-                  <TouchableOpacity style={styles.editRow} onPress={() => setIsEditingPayment(true)}>
-                    <Text style={styles.editLabel}>💳 Payment</Text>
-                    <Text style={styles.editValue}>{parsed.payment_method}</Text>
-                    <Text style={styles.chevron}>›</Text>
+                  <TouchableOpacity className="flex-row items-center py-2.5 border-b border-border" onPress={() => setIsEditingPayment(true)}>
+                    <View className="w-24 flex-row items-center gap-1.5">
+                      <CreditCard size={14} color={COLORS.textSecondary} />
+                      <Text className="text-textSecondary text-[13px]">Payment</Text>
+                    </View>
+                    <Text className="flex-1 text-text text-[15px]">{parsed.payment_method}</Text>
+                    <ChevronRight size={18} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
                 {/* Sub-modals for selection */}
                 {isEditingCategory && (
-                  <View style={styles.selectionOverlay}>
-                    <View style={styles.selectionSheet}>
-                      <Text style={styles.selectionTitle}>Select Category</Text>
+                  <View className="absolute inset-0 bg-black/80 justify-center p-5 z-[1000]">
+                    <View className="bg-surface rounded-[15px] p-5">
+                      <Text className="text-text text-lg font-bold mb-4 text-center">Select Category</Text>
                       <ScrollView style={{maxHeight: 300}}>
                         {categories.map(cat => (
-                          <TouchableOpacity key={cat.id} style={styles.selectionItem} onPress={() => { setParsed({...parsed, category_id: cat.id, category_name: cat.name}); setIsEditingCategory(false) }}>
-                            <Text style={styles.itemIcon}>{cat.icon}</Text>
-                            <Text style={styles.itemLabel}>{cat.name}</Text>
+                          <TouchableOpacity key={cat.id} className="flex-row items-center py-3 border-b border-border" onPress={() => { setParsed({...parsed, category_id: cat.id, category_name: cat.name}); setIsEditingCategory(false) }}>
+                            <Text className="text-xl mr-4">{cat.icon}</Text>
+                            <Text className="text-text text-base">{cat.name}</Text>
                           </TouchableOpacity>
                         ))}
                         {isAddingCategory ? (
-                          <View style={styles.newItemForm}>
-                            <TextInput style={styles.newItemInput} value={newCatName} onChangeText={setNewCatName} placeholder="Category Name" placeholderTextColor="#999" />
-                            <TouchableOpacity style={styles.addConfirmBtn} onPress={handleCreateCategory}><Text style={styles.addConfirmText}>Create</Text></TouchableOpacity>
+                          <View className="mt-2.5 p-2.5 bg-background rounded-lg">
+                            <TextInput className="text-text border-b border-primary py-1 mb-2.5" value={newCatName} onChangeText={setNewCatName} placeholder="Category Name" placeholderTextColor="#999" />
+                            <TouchableOpacity className="bg-primary p-2 rounded-md items-center" onPress={handleCreateCategory}><Text className="text-white font-bold">Create</Text></TouchableOpacity>
                           </View>
                         ) : (
-                          <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddingCategory(true)}><Text style={styles.addBtnText}>+ New Category</Text></TouchableOpacity>
+                          <TouchableOpacity className="p-3 rounded-lg border border-dashed border-primary mt-2.5 items-center flex-row justify-center gap-2" onPress={() => setIsAddingCategory(true)}>
+                            <Plus size={16} color={COLORS.primary} />
+                            <Text className="text-primary font-semibold">New Category</Text>
+                          </TouchableOpacity>
                         )}
                       </ScrollView>
-                      <TouchableOpacity onPress={() => setIsEditingCategory(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+                      <TouchableOpacity onPress={() => setIsEditingCategory(false)}><Text className="text-error text-center mt-4 font-semibold">Cancel</Text></TouchableOpacity>
                     </View>
                   </View>
                 )}
 
                 {isEditingPayment && (
-                  <View style={styles.selectionOverlay}>
-                    <View style={styles.selectionSheet}>
-                      <Text style={styles.selectionTitle}>Select Payment</Text>
+                  <View className="absolute inset-0 bg-black/80 justify-center p-5 z-[1000]">
+                    <View className="bg-surface rounded-[15px] p-5">
+                      <Text className="text-text text-lg font-bold mb-4 text-center">Select Payment</Text>
                       <ScrollView style={{maxHeight: 300}}>
                         {customPayments.map(p => (
-                          <TouchableOpacity key={p.value} style={styles.selectionItem} onPress={() => { setParsed({...parsed, payment_method: p.label}); setIsEditingPayment(false) }}>
-                            <Text style={styles.itemIcon}>{p.icon}</Text>
-                            <Text style={styles.itemLabel}>{p.label}</Text>
+                          <TouchableOpacity key={p.value} className="flex-row items-center py-3 border-b border-border" onPress={() => { setParsed({...parsed, payment_method: p.label}); setIsEditingPayment(false) }}>
+                            <Text className="text-xl mr-4">{p.icon}</Text>
+                            <Text className="text-text text-base">{p.label}</Text>
                           </TouchableOpacity>
                         ))}
                         {isAddingPayment ? (
-                          <View style={styles.newItemForm}>
-                            <TextInput style={styles.newItemInput} value={newPaymentName} onChangeText={setNewPaymentName} placeholder="Payment Name" placeholderTextColor="#999" />
-                            <TouchableOpacity style={styles.addConfirmBtn} onPress={handleAddCustomPayment}><Text style={styles.addConfirmText}>Add</Text></TouchableOpacity>
+                          <View className="mt-2.5 p-2.5 bg-background rounded-lg">
+                            <TextInput className="text-text border-b border-primary py-1 mb-2.5" value={newPaymentName} onChangeText={setNewPaymentName} placeholder="Payment Name" placeholderTextColor="#999" />
+                            <TouchableOpacity className="bg-primary p-2 rounded-md items-center" onPress={handleAddCustomPayment}><Text className="text-white font-bold">Add</Text></TouchableOpacity>
                           </View>
                         ) : (
-                          <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddingPayment(true)}><Text style={styles.addBtnText}>+ Custom Payment</Text></TouchableOpacity>
+                          <TouchableOpacity className="p-3 rounded-lg border border-dashed border-primary mt-2.5 items-center flex-row justify-center gap-2" onPress={() => setIsAddingPayment(true)}>
+                            <Plus size={16} color={COLORS.primary} />
+                            <Text className="text-primary font-semibold">Custom Payment</Text>
+                          </TouchableOpacity>
                         )}
                       </ScrollView>
-                      <TouchableOpacity onPress={() => setIsEditingPayment(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+                      <TouchableOpacity onPress={() => setIsEditingPayment(false)}><Text className="text-error text-center mt-4 font-semibold">Cancel</Text></TouchableOpacity>
                     </View>
                   </View>
                 )}
 
-                <View style={styles.previewActions}>
-                  <TouchableOpacity style={styles.retryBtn} onPress={() => setStage('idle')}><Text style={styles.retryText}>Retry</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.saveBtn} onPress={handleSave}><Text style={styles.saveBtnText}>Save ✓</Text></TouchableOpacity>
+                <View className="flex-row gap-2.5 mt-2.5">
+                  <TouchableOpacity className="flex-1 p-4 rounded-xl bg-surface border border-border items-center flex-row justify-center gap-2" onPress={() => setStage('idle')}>
+                    <Trash2 size={18} color={COLORS.textSecondary} />
+                    <Text className="text-textSecondary font-semibold">Retry</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="flex-[2] p-4 rounded-xl bg-primary items-center flex-row justify-center gap-2" onPress={handleSave}>
+                    <Check size={18} color={COLORS.white} />
+                    <Text className="text-white font-bold">Save</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -403,47 +438,3 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     </Modal>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, paddingBottom: 40 },
-  handleContainer: { width: '100%', height: 30, justifyContent: 'center', alignItems: 'center', marginTop: -10 },
-  handle: { width: 40, height: 5, backgroundColor: COLORS.border, borderRadius: 3 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
-  title: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  closeBtn: { color: COLORS.textSecondary, fontSize: 20 },
-  voiceSection: { alignItems: 'center', paddingVertical: 20 },
-  micOuter: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary + '22', justifyContent: 'center', alignItems: 'center' },
-  micBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  micBtnRecording: { backgroundColor: COLORS.error },
-  micIcon: { fontSize: 30 },
-  realtimeContainer: { width: '100%', padding: 15, backgroundColor: COLORS.background, borderRadius: 12, marginVertical: 20 },
-  realtimeText: { color: COLORS.text, fontSize: 16, textAlign: 'center' },
-  voiceHint: { color: COLORS.textSecondary, marginTop: 10 },
-  preview: { gap: 15 },
-  previewCard: { backgroundColor: COLORS.background, borderRadius: 12, padding: 15, borderWidth: 1, borderColor: COLORS.border },
-  editRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  editLabel: { width: 80, color: COLORS.textSecondary, fontSize: 13 },
-  editInput: { flex: 1, color: COLORS.text, fontSize: 15, fontWeight: '500' },
-  amountInput: { fontSize: 18, color: COLORS.primary, fontWeight: 'bold' },
-  editValue: { flex: 1, color: COLORS.text, fontSize: 15 },
-  chevron: { color: COLORS.textSecondary, fontSize: 18 },
-  previewActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  retryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
-  retryText: { color: COLORS.textSecondary, fontWeight: '600' },
-  saveBtn: { flex: 2, padding: 15, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center' },
-  saveBtnText: { color: COLORS.white, fontWeight: 'bold' },
-  selectionOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20, zIndex: 1000 },
-  selectionSheet: { backgroundColor: COLORS.surface, borderRadius: 15, padding: 20 },
-  selectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  selectionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  itemIcon: { fontSize: 20, marginRight: 15 },
-  itemLabel: { color: COLORS.text, fontSize: 16 },
-  cancelText: { color: COLORS.error, textAlign: 'center', marginTop: 15, fontWeight: '600' },
-  addBtn: { padding: 12, borderRadius: 8, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.primary, marginTop: 10, alignItems: 'center' },
-  addBtnText: { color: COLORS.primary, fontWeight: '600' },
-  newItemForm: { marginTop: 10, padding: 10, backgroundColor: COLORS.background, borderRadius: 8 },
-  newItemInput: { color: COLORS.text, borderBottomWidth: 1, borderBottomColor: COLORS.primary, paddingVertical: 5, marginBottom: 10 },
-  addConfirmBtn: { backgroundColor: COLORS.primary, padding: 8, borderRadius: 5, alignItems: 'center' },
-  addConfirmText: { color: COLORS.white, fontWeight: 'bold' }
-})

@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Dimensions
+  View, Text, ScrollView,
+  TouchableOpacity
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { 
+  Calendar, Tag, CreditCard, TrendingUp, 
+  Banknote, Smartphone, Landmark, Package 
+} from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS, SPACING } from '../../constants'
-
-const { width } = Dimensions.get('window')
+import { COLORS } from '../../constants'
 
 export default function AnalyticsScreen() {
   const { expenses, categories } = useExpenseStore()
@@ -69,23 +71,31 @@ export default function AnalyticsScreen() {
     { key: 'year', label: 'Year' },
   ]
 
+  const paymentIcons: Record<string, any> = {
+    cash: <Banknote size={24} color={COLORS.success} />,
+    card: <CreditCard size={24} color={COLORS.primary} />,
+    upi: <Smartphone size={24} color={COLORS.secondary} />,
+    bank_transfer: <Landmark size={24} color={COLORS.warning} />,
+    other: <Package size={24} color={COLORS.textSecondary} />
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Analytics</Text>
+        <View className="p-6 pb-2">
+          <Text className="text-[26px] font-bold text-text">Analytics</Text>
         </View>
 
         {/* Period filter */}
-        <View style={styles.periodRow}>
+        <View className="flex-row gap-2 px-6 mb-4">
           {PERIODS.map((p) => (
             <TouchableOpacity
               key={p.key}
-              style={[styles.periodChip, period === p.key && styles.periodChipActive]}
+              className={`flex-1 py-3 rounded-xl items-center border ${period === p.key ? 'bg-primary border-primary' : 'bg-surface border-border'}`}
               onPress={() => setPeriod(p.key as any)}
             >
-              <Text style={[styles.periodText, period === p.key && styles.periodTextActive]}>
+              <Text className={`font-semibold ${period === p.key ? 'text-white' : 'text-textSecondary'}`}>
                 {p.label}
               </Text>
             </TouchableOpacity>
@@ -93,71 +103,76 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* Total card */}
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total Spent ({period})</Text>
-          <Text style={styles.totalAmount}>
+        <View className="m-6 mt-0 bg-primary rounded-[20px] p-6 items-center">
+          <Text className="text-white/80 text-sm">Total Spent ({period})</Text>
+          <Text className="text-white text-4xl font-bold my-1">
             Rs. {grandTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
           </Text>
-          <Text style={styles.totalCount}>{filtered.length} transactions</Text>
+          <Text className="text-white/70 text-[13px]">{filtered.length} transactions</Text>
         </View>
 
         {/* Daily bar chart */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>📅 Daily Spending (Last 7 Days)</Text>
-          <View style={styles.barChart}>
+        <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center mb-4 gap-2">
+            <Calendar size={18} color={COLORS.text} />
+            <Text className="text-text font-bold text-base">Daily Spending (Last 7 Days)</Text>
+          </View>
+          <View className="flex-row items-end h-[140px] gap-1.5">
             {dailyData.map((d, i) => (
-              <View key={i} style={styles.barCol}>
-                <Text style={styles.barAmount}>
+              <View key={i} className="flex-1 items-center h-full justify-end">
+                <Text className="text-textSecondary text-[9px] mb-0.5">
                   {d.total > 0 ? `${(d.total / 1000).toFixed(1)}k` : ''}
                 </Text>
-                <View style={styles.barBg}>
+                <View className="w-full h-[100px] bg-background rounded-lg justify-end overflow-hidden">
                   <View
-                    style={[
-                      styles.barFill,
-                      {
-                        height: `${(d.total / maxDaily) * 100}%`,
-                        backgroundColor: d.total > 0 ? COLORS.primary : COLORS.border,
-                      }
-                    ]}
+                    className="w-full rounded-lg min-h-[2px]"
+                    style={{
+                      height: `${(d.total / maxDaily) * 100}%`,
+                      backgroundColor: d.total > 0 ? COLORS.primary : COLORS.border,
+                    }}
                   />
                 </View>
-                <Text style={styles.barDay}>{d.day}</Text>
+                <Text className="text-textSecondary text-[11px] mt-1">{d.day}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* Category breakdown */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🏷️ By Category</Text>
+        <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center mb-4 gap-2">
+            <Tag size={18} color={COLORS.text} />
+            <Text className="text-text font-bold text-base">By Category</Text>
+          </View>
           {categoryTotals.length === 0 ? (
-            <Text style={styles.empty}>No data for this period</Text>
+            <Text className="text-textSecondary text-center p-4">No data for this period</Text>
           ) : (
             categoryTotals.map((cat) => {
               const pct = grandTotal > 0 ? (cat.total / grandTotal) * 100 : 0
               return (
-                <View key={cat.id} style={styles.catRow}>
-                  <View style={styles.catLeft}>
-                    <View style={[styles.catIcon, { backgroundColor: cat.color + '33' }]}>
+                <View key={cat.id} className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center flex-1 gap-2">
+                    <View 
+                      className="w-9 h-9 rounded-xl justify-center items-center" 
+                      style={{ backgroundColor: cat.color + '33' }}
+                    >
                       <Text>{cat.icon}</Text>
                     </View>
-                    <View style={styles.catInfo}>
-                      <Text style={styles.catName}>{cat.name}</Text>
-                      <View style={styles.catBarBg}>
+                    <View className="flex-1">
+                      <Text className="text-text text-[13px] font-medium mb-1">{cat.name}</Text>
+                      <View className="h-1 bg-background rounded-full overflow-hidden">
                         <View
-                          style={[
-                            styles.catBarFill,
-                            { width: `${pct}%` as any, backgroundColor: cat.color }
-                          ]}
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
                         />
                       </View>
                     </View>
                   </View>
-                  <View style={styles.catRight}>
-                    <Text style={styles.catAmount}>
+                  <View className="items-end ml-2">
+                    <Text className="text-text font-bold text-[13px]">
                       Rs.{cat.total.toLocaleString('en-NP')}
                     </Text>
-                    <Text style={styles.catPct}>{pct.toFixed(1)}%</Text>
+                    <Text className="text-textSecondary text-[11px]">{pct.toFixed(1)}%</Text>
                   </View>
                 </View>
               )
@@ -166,26 +181,25 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* Payment method */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>💳 By Payment Method</Text>
+        <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center mb-4 gap-2">
+            <CreditCard size={18} color={COLORS.text} />
+            <Text className="text-text font-bold text-base">By Payment Method</Text>
+          </View>
           {paymentTotals.length === 0 ? (
-            <Text style={styles.empty}>No data for this period</Text>
+            <Text className="text-textSecondary text-center p-4">No data for this period</Text>
           ) : (
-            <View style={styles.paymentGrid}>
+            <View className="flex-row flex-wrap gap-2">
               {paymentTotals.map((p) => {
-                const icons: Record<string, string> = {
-                  cash: '💵', card: '💳', upi: '📱',
-                  bank_transfer: '🏦', other: '📦'
-                }
                 const pct = grandTotal > 0 ? (p.total / grandTotal) * 100 : 0
                 return (
-                  <View key={p.method} style={styles.paymentCard}>
-                    <Text style={styles.paymentIcon}>{icons[p.method]}</Text>
-                    <Text style={styles.paymentMethod}>{p.method.replace('_', ' ')}</Text>
-                    <Text style={styles.paymentAmount}>
+                  <View key={p.method} className="flex-1 min-w-[28%] bg-background rounded-xl p-3 items-center border border-border">
+                    <View className="mb-1">{paymentIcons[p.method]}</View>
+                    <Text className="text-textSecondary text-[11px] capitalize">{p.method.replace('_', ' ')}</Text>
+                    <Text className="text-text font-bold text-[12px] mt-0.5">
                       Rs.{p.total.toLocaleString('en-NP')}
                     </Text>
-                    <Text style={styles.paymentPct}>{pct.toFixed(0)}%</Text>
+                    <Text className="text-primary text-[11px]">{pct.toFixed(0)}%</Text>
                   </View>
                 )
               })}
@@ -194,109 +208,30 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* Top expenses */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🔝 Top Expenses</Text>
+        <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center mb-4 gap-2">
+            <TrendingUp size={18} color={COLORS.text} />
+            <Text className="text-text font-bold text-base">Top Expenses</Text>
+          </View>
           {filtered
             .sort((a, b) => Number(b.amount) - Number(a.amount))
             .slice(0, 5)
             .map((e) => (
-              <View key={e.id} style={styles.topRow}>
-                <Text style={styles.topIcon}>{e.category?.icon ?? '📦'}</Text>
-                <View style={styles.topInfo}>
-                  <Text style={styles.topTitle} numberOfLines={1}>{e.title}</Text>
-                  <Text style={styles.topDate}>{e.expense_date}</Text>
+              <View key={e.id} className="flex-row items-center py-2 border-b border-border gap-2">
+                <Text className="text-[22px]">{e.category?.icon ?? '📦'}</Text>
+                <View className="flex-1">
+                  <Text className="text-text text-sm font-medium" numberOfLines={1}>{e.title}</Text>
+                  <Text className="text-textSecondary text-[11px]">{e.expense_date}</Text>
                 </View>
-                <Text style={styles.topAmount}>
+                <Text className="text-primary font-bold text-sm">
                   Rs.{Number(e.amount).toLocaleString('en-NP')}
                 </Text>
               </View>
             ))}
         </View>
 
-        <View style={{ height: SPACING.xxl }} />
+        <View className="h-12" />
       </ScrollView>
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { padding: SPACING.lg, paddingBottom: SPACING.sm },
-  title: { fontSize: 26, fontWeight: 'bold', color: COLORS.text },
-  periodRow: {
-    flexDirection: 'row', gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg, marginBottom: SPACING.md,
-  },
-  periodChip: {
-    flex: 1, paddingVertical: SPACING.sm, borderRadius: 10,
-    backgroundColor: COLORS.surface, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  periodChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  periodText: { color: COLORS.textSecondary, fontWeight: '600' },
-  periodTextActive: { color: COLORS.white },
-  totalCard: {
-    margin: SPACING.lg, marginTop: 0,
-    backgroundColor: COLORS.primary, borderRadius: 20,
-    padding: SPACING.lg, alignItems: 'center',
-  },
-  totalLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  totalAmount: { color: COLORS.white, fontSize: 36, fontWeight: 'bold', marginVertical: 4 },
-  totalCount: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-  card: {
-    marginHorizontal: SPACING.lg, marginBottom: SPACING.md,
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  cardTitle: { color: COLORS.text, fontWeight: 'bold', fontSize: 16, marginBottom: SPACING.md },
-  empty: { color: COLORS.textSecondary, textAlign: 'center', padding: SPACING.md },
-  barChart: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    height: 140, gap: 6,
-  },
-  barCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
-  barAmount: { color: COLORS.textSecondary, fontSize: 9, marginBottom: 2 },
-  barBg: {
-    width: '100%', height: 100,
-    backgroundColor: COLORS.background, borderRadius: 4,
-    justifyContent: 'flex-end', overflow: 'hidden',
-  },
-  barFill: { width: '100%', borderRadius: 4, minHeight: 2 },
-  barDay: { color: COLORS.textSecondary, fontSize: 11, marginTop: 4 },
-  catRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: SPACING.sm,
-  },
-  catLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: SPACING.sm },
-  catIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  catInfo: { flex: 1 },
-  catName: { color: COLORS.text, fontSize: 13, fontWeight: '500', marginBottom: 4 },
-  catBarBg: {
-    height: 4, backgroundColor: COLORS.background,
-    borderRadius: 2, overflow: 'hidden',
-  },
-  catBarFill: { height: '100%', borderRadius: 2 },
-  catRight: { alignItems: 'flex-end', marginLeft: SPACING.sm },
-  catAmount: { color: COLORS.text, fontWeight: 'bold', fontSize: 13 },
-  catPct: { color: COLORS.textSecondary, fontSize: 11 },
-  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  paymentCard: {
-    flex: 1, minWidth: '28%', backgroundColor: COLORS.background,
-    borderRadius: 12, padding: SPACING.sm, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  paymentIcon: { fontSize: 24, marginBottom: 4 },
-  paymentMethod: { color: COLORS.textSecondary, fontSize: 11, textTransform: 'capitalize' },
-  paymentAmount: { color: COLORS.text, fontWeight: 'bold', fontSize: 12, marginTop: 2 },
-  paymentPct: { color: COLORS.primary, fontSize: 11 },
-  topRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: SPACING.xs, borderBottomWidth: 1,
-    borderBottomColor: COLORS.border, gap: SPACING.sm,
-  },
-  topIcon: { fontSize: 22 },
-  topInfo: { flex: 1 },
-  topTitle: { color: COLORS.text, fontSize: 14, fontWeight: '500' },
-  topDate: { color: COLORS.textSecondary, fontSize: 11 },
-  topAmount: { color: COLORS.primary, fontWeight: 'bold', fontSize: 14 },
-})

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Switch, Modal } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Switch, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { ArrowLeft, Plus } from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useAuthStore } from '../../store/authStore'
-import { COLORS, SPACING, PAYMENT_METHODS } from '../../constants'
+import { COLORS } from '../../constants'
 import { Category } from '../../types'
 
 export default function AddExpenseScreen({ navigation }: any) {
@@ -86,25 +87,25 @@ export default function AddExpenseScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>← Back</Text>
+        <View className="flex-row items-center justify-between p-6">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="w-[60px]">
+            <ArrowLeft size={24} color={COLORS.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add Expense</Text>
-          <View style={{ width: 60 }} />
+          <Text className="text-lg font-bold text-text">Add Expense</Text>
+          <View className="w-[60px]" />
         </View>
 
-        <View style={styles.form}>
+        <View className="p-6 gap-6">
           {/* Amount — big input */}
-          <View style={styles.amountCard}>
-            <Text style={styles.amountLabel}>Amount (NPR)</Text>
-            <View style={styles.amountRow}>
-              <Text style={styles.currencySymbol}>Rs.</Text>
+          <View className="bg-surface rounded-2xl p-6 border border-border items-center">
+            <Text className="text-textSecondary text-sm mb-2">Amount (NPR)</Text>
+            <View className="flex-row items-center">
+              <Text className="text-textSecondary text-2xl mr-2">Rs.</Text>
               <TextInput
-                style={styles.amountInput}
+                className="text-text text-[48px] font-bold min-w-[150px] text-center"
                 placeholder="0.00"
                 placeholderTextColor={COLORS.textSecondary}
                 value={amount}
@@ -115,10 +116,10 @@ export default function AddExpenseScreen({ navigation }: any) {
           </View>
 
           {/* Title */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Title</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Title</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="e.g. Lunch at Bhojan Griha"
               placeholderTextColor={COLORS.textSecondary}
               value={title}
@@ -127,10 +128,10 @@ export default function AddExpenseScreen({ navigation }: any) {
           </View>
 
           {/* Date */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Date</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Date</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="YYYY-MM-DD"
               placeholderTextColor={COLORS.textSecondary}
               value={expenseDate}
@@ -139,15 +140,15 @@ export default function AddExpenseScreen({ navigation }: any) {
           </View>
 
           {/* Categories */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Category</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.categoryRow}>
+              <View className="flex-row gap-2 pb-1">
                 {categories.map((cat) => (
                   <TouchableOpacity
                     key={cat.id}
+                    className="flex-row items-center gap-1.5 bg-surface border border-border rounded-full px-4 py-2"
                     style={[
-                      styles.categoryChip,
                       selectedCategory?.id === cat.id && {
                         backgroundColor: cat.color + '33',
                         borderColor: cat.color,
@@ -155,67 +156,57 @@ export default function AddExpenseScreen({ navigation }: any) {
                     ]}
                     onPress={() => setSelectedCategory(cat)}
                   >
-                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                    <Text style={[
-                      styles.categoryName,
-                      selectedCategory?.id === cat.id && { color: cat.color }
-                    ]}>
+                    <Text className="text-base">{cat.icon}</Text>
+                    <Text className={`text-[13px] font-medium ${selectedCategory?.id === cat.id ? '' : 'text-textSecondary'}`}
+                      style={[selectedCategory?.id === cat.id && { color: cat.color }]}
+                    >
                       {cat.name}
                     </Text>
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity
-                  style={[styles.categoryChip, styles.addBtn]}
+                  className="flex-row items-center gap-1.5 border border-border rounded-full px-4 py-2 border-dashed border-primary bg-transparent"
                   onPress={handleAddNewCategory}
                 >
-                  <Text style={styles.addBtnIcon}>+</Text>
-                  <Text style={styles.addBtnText}>Add New</Text>
+                  <Plus size={16} color={COLORS.primary} />
+                  <Text className="text-primary text-[13px] font-bold">Add New</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
 
           {/* Payment method */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Payment Method</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Payment Method</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.categoryRow}>
+              <View className="flex-row gap-2 pb-1">
                 {paymentMethods.map((pm) => (
                   <TouchableOpacity
                     key={pm.value}
-                    style={[
-                      styles.categoryChip,
-                      selectedPayment === pm.value && {
-                        backgroundColor: COLORS.primary + '33',
-                        borderColor: COLORS.primary,
-                      }
-                    ]}
+                    className={`flex-row items-center gap-1.5 bg-surface border rounded-full px-4 py-2 ${selectedPayment === pm.value ? 'bg-primary/20 border-primary' : 'border-border'}`}
                     onPress={() => setSelectedPayment(pm.value)}
                   >
-                    <Text style={styles.categoryIcon}>{pm.icon}</Text>
-                    <Text style={[
-                      styles.categoryName,
-                      selectedPayment === pm.value && { color: COLORS.primary }
-                    ]}>
+                    <Text className="text-base">{pm.icon}</Text>
+                    <Text className={`text-[13px] font-medium ${selectedPayment === pm.value ? 'text-primary' : 'text-textSecondary'}`}>
                       {pm.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity
-                  style={[styles.categoryChip, styles.addBtn]}
+                  className="flex-row items-center gap-1.5 border border-border rounded-full px-4 py-2 border-dashed border-primary bg-transparent"
                   onPress={handleAddNewPayment}
                 >
-                  <Text style={styles.addBtnIcon}>+</Text>
-                  <Text style={styles.addBtnText}>Add New</Text>
+                  <Plus size={16} color={COLORS.primary} />
+                  <Text className="text-primary text-[13px] font-bold">Add New</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
 
           {/* Recurring */}
-          <View style={styles.field}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.label}>Recurring Expense</Text>
+          <View className="gap-1">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-semibold text-textSecondary">Recurring Expense</Text>
               <Switch
                 value={isRecurring}
                 onValueChange={setIsRecurring}
@@ -223,23 +214,14 @@ export default function AddExpenseScreen({ navigation }: any) {
               />
             </View>
             {isRecurring && (
-              <View style={[styles.categoryRow, { marginTop: SPACING.xs }]}>
+              <View className="flex-row gap-2 mt-1">
                 {['daily', 'weekly', 'monthly', 'yearly'].map((p) => (
                   <TouchableOpacity
                     key={p}
-                    style={[
-                      styles.categoryChip,
-                      recurringPeriod === p && {
-                        backgroundColor: COLORS.primary + '33',
-                        borderColor: COLORS.primary,
-                      }
-                    ]}
+                    className={`flex-1 py-2 rounded-xl border items-center ${recurringPeriod === p ? 'bg-primary/20 border-primary' : 'bg-surface border-border'}`}
                     onPress={() => setRecurringPeriod(p as any)}
                   >
-                    <Text style={[
-                      styles.categoryName,
-                      recurringPeriod === p && { color: COLORS.primary }
-                    ]}>
+                    <Text className={`text-[13px] font-medium ${recurringPeriod === p ? 'text-primary' : 'text-textSecondary'}`}>
                       {p.charAt(0).toUpperCase() + p.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -249,10 +231,11 @@ export default function AddExpenseScreen({ navigation }: any) {
           </View>
 
           {/* Note */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Note (optional)</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Note (optional)</Text>
             <TextInput
-              style={[styles.input, styles.noteInput]}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base h-20"
+              style={{ textAlignVertical: 'top' }}
               placeholder="Any additional details..."
               placeholderTextColor={COLORS.textSecondary}
               value={note}
@@ -264,13 +247,13 @@ export default function AddExpenseScreen({ navigation }: any) {
 
           {/* Save button */}
           <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+            className={`bg-primary rounded-xl p-4 items-center mt-2 ${loading ? 'opacity-70' : ''}`}
             onPress={handleSave}
             disabled={loading}
           >
             {loading
               ? <ActivityIndicator color={COLORS.white} />
-              : <Text style={styles.saveBtnText}>Save Expense</Text>
+              : <Text className="text-white text-base font-bold">Save Expense</Text>
             }
           </TouchableOpacity>
         </View>
@@ -283,29 +266,29 @@ export default function AddExpenseScreen({ navigation }: any) {
         animationType="fade"
         onRequestClose={() => setPromptVisible(false)}
       >
-        <View style={styles.promptOverlay}>
-          <View style={styles.promptCard}>
-            <Text style={styles.promptTitle}>{promptTitle}</Text>
+        <View className="flex-1 bg-black/60 justify-center p-8">
+          <View className="bg-surface rounded-[20px] p-6 border border-border">
+            <Text className="text-text text-lg font-bold mb-4">{promptTitle}</Text>
             <TextInput
-              style={styles.promptInput}
+              className="bg-background border border-border rounded-xl p-4 text-text text-base mb-6"
               value={promptValue}
               onChangeText={setPromptValue}
               placeholder="Enter name..."
               placeholderTextColor={COLORS.textSecondary}
               autoFocus
             />
-            <View style={styles.promptActions}>
+            <View className="flex-row justify-end gap-4">
               <TouchableOpacity 
-                style={styles.promptCancel} 
+                className="py-2 px-4" 
                 onPress={() => setPromptVisible(false)}
               >
-                <Text style={styles.promptCancelText}>Cancel</Text>
+                <Text className="text-textSecondary text-base font-semibold">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.promptSubmit} 
+                className="bg-primary py-2 px-6 rounded-lg" 
                 onPress={handlePromptSubmit}
               >
-                <Text style={styles.promptSubmitText}>Add</Text>
+                <Text className="text-white text-base font-bold">Add</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -314,108 +297,3 @@ export default function AddExpenseScreen({ navigation }: any) {
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', padding: SPACING.lg
-  },
-  backBtn: { width: 60 },
-  backText: { color: COLORS.primary, fontSize: 16 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  form: { padding: SPACING.lg, gap: SPACING.lg },
-  amountCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center'
-  },
-  amountLabel: { color: COLORS.textSecondary, fontSize: 14, marginBottom: SPACING.sm },
-  amountRow: { flexDirection: 'row', alignItems: 'center' },
-  currencySymbol: { color: COLORS.textSecondary, fontSize: 24, marginRight: SPACING.xs },
-  amountInput: {
-    color: COLORS.text, fontSize: 48, fontWeight: 'bold',
-    minWidth: 150, textAlign: 'center'
-  },
-  field: { gap: SPACING.xs },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  input: {
-    backgroundColor: COLORS.surface, borderWidth: 1,
-    borderColor: COLORS.border, borderRadius: 12,
-    padding: SPACING.md, color: COLORS.text, fontSize: 16,
-  },
-  noteInput: { height: 80, textAlignVertical: 'top' },
-  categoryRow: { flexDirection: 'row', gap: SPACING.sm, paddingBottom: SPACING.xs },
-  categoryChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: COLORS.surface, borderWidth: 1,
-    borderColor: COLORS.border, borderRadius: 20,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-  },
-  categoryIcon: { fontSize: 16 },
-  categoryName: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '500' },
-  saveBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center', marginTop: SPACING.sm
-  },
-  saveBtnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-  addBtn: { borderStyle: 'dashed', borderColor: COLORS.primary, backgroundColor: 'transparent' },
-  addBtnIcon: { fontSize: 16, color: COLORS.primary, fontWeight: 'bold' },
-  addBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: 'bold' },
-
-  // Prompt Modal Styles
-  promptOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: SPACING.xl,
-  },
-  promptCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  promptTitle: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: SPACING.md,
-  },
-  promptInput: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    color: COLORS.text,
-    fontSize: 16,
-    marginBottom: SPACING.lg,
-  },
-  promptActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: SPACING.md,
-  },
-  promptCancel: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  promptCancelText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  promptSubmit: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 10,
-  },
-  promptSubmitText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-})

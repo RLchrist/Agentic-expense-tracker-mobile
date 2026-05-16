@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Home, List, BarChart2, Wallet, Settings } from 'lucide-react-native'
 import { COLORS } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
 import BudgetsScreen from '../screens/dashboard/BudgetsScreen'
@@ -34,27 +34,42 @@ function HomeTabs() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ tabBarLabel: 'Home', tabBarIcon: () => <Text>🏠</Text> }}
+        options={{ 
+          tabBarLabel: 'Home', 
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> 
+        }}
       />
       <Tab.Screen
         name="Expenses"
         component={ExpensesScreen}
-        options={{ tabBarLabel: 'Expenses', tabBarIcon: () => <Text>📋</Text> }}
+        options={{ 
+          tabBarLabel: 'Expenses', 
+          tabBarIcon: ({ color, size }) => <List color={color} size={size} /> 
+        }}
       />
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
-        options={{ tabBarLabel: 'Analytics', tabBarIcon: () => <Text>📊</Text> }}
+        options={{ 
+          tabBarLabel: 'Analytics', 
+          tabBarIcon: ({ color, size }) => <BarChart2 color={color} size={size} /> 
+        }}
       />
       <Tab.Screen
         name="Budgets"
         component={BudgetsScreen}
-        options={{ tabBarLabel: 'Budgets', tabBarIcon: () => <Text>💰</Text> }}
+        options={{ 
+          tabBarLabel: 'Budgets', 
+          tabBarIcon: ({ color, size }) => <Wallet color={color} size={size} /> 
+        }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ tabBarLabel: 'Settings', tabBarIcon: () => <Text>⚙️</Text> }}
+        options={{ 
+          tabBarLabel: 'Settings', 
+          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> 
+        }}
       />
     </Tab.Navigator>
   )

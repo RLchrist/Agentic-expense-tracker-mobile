@@ -13,6 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0F0F1A"
     },
+    "experiments": {
+      "typedRoutes": false
+    },
     "ios": {
       "supportsTablet": false
     },

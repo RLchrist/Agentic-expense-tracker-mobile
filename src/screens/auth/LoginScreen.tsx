@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
+  ActivityIndicator, KeyboardAvoidingView,
   Platform, Alert, ScrollView
 } from 'react-native'
+import { Wallet } from 'lucide-react-native'
 import { supabase } from '../../services/supabase/client'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS } from '../../constants'
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('')
@@ -25,23 +26,25 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerClassName="flex-grow justify-center p-6" keyboardShouldPersistTaps="handled">
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.emoji}>💰</Text>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your expense tracker</Text>
+        <View className="items-center mb-12">
+          <View className="mb-4">
+            <Wallet size={64} color={COLORS.primary} />
+          </View>
+          <Text className="text-3xl font-bold text-text mb-1">Welcome Back</Text>
+          <Text className="text-base text-textSecondary">Sign in to your expense tracker</Text>
         </View>
 
         {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
+        <View className="gap-4">
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Email</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="you@example.com"
               placeholderTextColor={COLORS.textSecondary}
               value={email}
@@ -52,10 +55,10 @@ export default function LoginScreen({ navigation }: any) {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Password</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="••••••••"
               placeholderTextColor={COLORS.textSecondary}
               value={password}
@@ -65,23 +68,23 @@ export default function LoginScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            className={`bg-primary rounded-xl p-4 items-center mt-2 ${loading ? 'opacity-70' : ''}`}
             onPress={handleLogin}
             disabled={loading}
           >
             {loading
               ? <ActivityIndicator color={COLORS.white} />
-              : <Text style={styles.buttonText}>Sign In</Text>
+              : <Text className="text-white text-base font-bold">Sign In</Text>
             }
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.linkButton}
+            className="items-center mt-2"
             onPress={() => navigation.navigate('Register')}
           >
-            <Text style={styles.linkText}>
+            <Text className="text-textSecondary text-sm">
               Don't have an account?{' '}
-              <Text style={styles.linkHighlight}>Sign Up</Text>
+              <Text className="text-primary font-bold">Sign Up</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -89,36 +92,3 @@ export default function LoginScreen({ navigation }: any) {
     </KeyboardAvoidingView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg },
-  header: { alignItems: 'center', marginBottom: SPACING.xxl },
-  emoji: { fontSize: 64, marginBottom: SPACING.md },
-  title: { fontSize: 32, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.xs },
-  subtitle: { fontSize: 16, color: COLORS.textSecondary },
-  form: { gap: SPACING.md },
-  inputGroup: { gap: SPACING.xs },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  input: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    color: COLORS.text,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-  linkButton: { alignItems: 'center', marginTop: SPACING.sm },
-  linkText: { color: COLORS.textSecondary, fontSize: 14 },
-  linkHighlight: { color: COLORS.primary, fontWeight: 'bold' },
-})

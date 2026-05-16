@@ -1,13 +1,16 @@
 import { useState, useRef } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as ImageManipulator from 'expo-image-manipulator'
-import { COLORS, SPACING } from '../../constants'
-import { parseExpenseFromText } from '../../services/ai/parseExpense'
+import { 
+  Camera, Sparkles, FileText, Wallet, Tag, 
+  Calendar, CreditCard, Pin, X, ArrowLeft, Check 
+} from 'lucide-react-native'
+import { COLORS } from '../../constants'
 import { useExpenseStore } from '../../store/expenseStore'
 import { ParsedExpense } from '../../services/ai/parseExpense'
 
@@ -90,22 +93,22 @@ export default function ReceiptScannerScreen({ navigation }: any) {
     ])
   }
 
-  if (!permission) return <View style={styles.container} />
+  if (!permission) return <View className="flex-1 bg-background" />
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.permissionBox}>
-          <Text style={styles.permissionEmoji}>📷</Text>
-          <Text style={styles.permissionTitle}>Camera Access Needed</Text>
-          <Text style={styles.permissionText}>
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-1 justify-center items-center gap-4 p-8">
+          <Camera size={64} color={COLORS.textSecondary} />
+          <Text className="text-text text-[22px] font-bold">Camera Access Needed</Text>
+          <Text className="text-textSecondary text-center text-[15px]">
             We need camera access to scan receipts
           </Text>
-          <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-            <Text style={styles.permissionBtnText}>Grant Permission</Text>
+          <TouchableOpacity className="bg-primary rounded-xl px-8 py-4" onPress={requestPermission}>
+            <Text className="text-white font-bold text-base">Grant Permission</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text className="text-textSecondary text-[15px]">Cancel</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -114,32 +117,41 @@ export default function ReceiptScannerScreen({ navigation }: any) {
 
   if (parsed) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.previewContainer}>
-          <Text style={styles.previewTitle}>✨ Receipt Scanned!</Text>
-          <View style={styles.previewCard}>
-            <PreviewRow label="📝 Title" value={parsed.title} />
-            <PreviewRow label="💰 Amount" value={`Rs. ${parsed.amount}`} highlight />
-            <PreviewRow label="🏷️ Category" value={parsed.category_name} />
-            <PreviewRow label="📅 Date" value={parsed.expense_date} />
-            <PreviewRow label="💳 Payment" value={parsed.payment_method} />
-            {parsed.note && <PreviewRow label="📌 Note" value={parsed.note} />}
+      <SafeAreaView className="flex-1 bg-background">
+        <ScrollView contentContainerClassName="p-6 gap-4">
+          <View className="flex-row items-center justify-center gap-2">
+            <Sparkles size={24} color={COLORS.primary} />
+            <Text className="text-text text-[22px] font-bold text-center">Receipt Scanned!</Text>
           </View>
-          <View style={styles.previewActions}>
+          <View className="bg-surface rounded-2xl p-4 border border-border">
+            <PreviewRow icon={<FileText size={16} color={COLORS.textSecondary} />} label="Title" value={parsed.title} />
+            <PreviewRow icon={<Wallet size={16} color={COLORS.primary} />} label="Amount" value={`Rs. ${parsed.amount}`} highlight />
+            <PreviewRow icon={<Tag size={16} color={COLORS.textSecondary} />} label="Category" value={parsed.category_name} />
+            <PreviewRow icon={<Calendar size={16} color={COLORS.textSecondary} />} label="Date" value={parsed.expense_date} />
+            <PreviewRow icon={<CreditCard size={16} color={COLORS.textSecondary} />} label="Payment" value={parsed.payment_method} />
+            {parsed.note && <PreviewRow icon={<Pin size={16} color={COLORS.textSecondary} />} label="Note" value={parsed.note} />}
+          </View>
+          <View className="flex-row gap-2">
             <TouchableOpacity
-              style={styles.retryBtn}
+              className="flex-1 bg-surface rounded-xl p-4 items-center border border-border flex-row justify-center gap-2"
               onPress={() => setParsed(null)}
             >
-              <Text style={styles.retryText}>← Rescan</Text>
+              <ArrowLeft size={16} color={COLORS.textSecondary} />
+              <Text className="text-textSecondary font-semibold">Rescan</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.saveBtn, saving && { opacity: 0.7 }]}
+              className={`flex-[2] bg-primary rounded-xl p-4 items-center flex-row justify-center gap-2 ${saving ? 'opacity-70' : ''}`}
               onPress={handleSave}
               disabled={saving}
             >
               {saving
                 ? <ActivityIndicator color={COLORS.white} />
-                : <Text style={styles.saveBtnText}>Save ✓</Text>
+                : (
+                  <>
+                    <Check size={18} color={COLORS.white} />
+                    <Text className="text-white font-bold text-base">Save</Text>
+                  </>
+                )
               }
             </TouchableOpacity>
           </View>
@@ -149,37 +161,37 @@ export default function ReceiptScannerScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
-      <CameraView style={styles.camera} facing="back" ref={cameraRef}>
+    <View className="flex-1 bg-background">
+      <CameraView className="flex-1" facing="back" ref={cameraRef}>
         {/* Overlay */}
-        <View style={styles.overlay}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.closeBtnText}>✕</Text>
+        <View className="flex-1 justify-between p-6 pb-10">
+          <TouchableOpacity className="self-end bg-black/50 w-10 h-10 rounded-full justify-center items-center" onPress={() => navigation.goBack()}>
+            <X size={24} color={COLORS.white} />
           </TouchableOpacity>
 
           {/* Scan frame */}
-          <View style={styles.scanFrame}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+          <View className="self-center w-[280px] h-[200px] rounded-xl relative justify-center items-center">
+            <View className="absolute top-0 left-0 border-primary border-l-[3px] border-t-[3px] w-6 h-6 rounded-tl-lg" />
+            <View className="absolute top-0 right-0 border-primary border-r-[3px] border-t-[3px] w-6 h-6 rounded-tr-lg" />
+            <View className="absolute bottom-0 left-0 border-primary border-l-[3px] border-b-[3px] w-6 h-6 rounded-bl-lg" />
+            <View className="absolute bottom-0 right-0 border-primary border-r-[3px] border-b-[3px] w-6 h-6 rounded-br-lg" />
             {scanning && (
-              <View style={styles.scanningOverlay}>
+              <View className="items-center gap-2">
                 <ActivityIndicator color={COLORS.primary} size="large" />
-                <Text style={styles.scanningText}>Reading receipt...</Text>
+                <Text className="text-white text-sm font-semibold">Reading receipt...</Text>
               </View>
             )}
           </View>
 
-          <Text style={styles.hint}>Position receipt within the frame</Text>
+          <Text className="text-white/80 text-center text-sm">Position receipt within the frame</Text>
 
           {/* Capture button */}
           <TouchableOpacity
-            style={[styles.captureBtn, scanning && { opacity: 0.5 }]}
+            className={`self-center w-[72px] h-[72px] rounded-full bg-white/30 justify-center items-center border-[3px] border-white ${scanning ? 'opacity-50' : ''}`}
             onPress={handleCapture}
             disabled={scanning}
           >
-            <View style={styles.captureBtnInner} />
+            <View className="w-[54px] h-[54px] rounded-full bg-white" />
           </TouchableOpacity>
         </View>
       </CameraView>
@@ -187,88 +199,16 @@ export default function ReceiptScannerScreen({ navigation }: any) {
   )
 }
 
-function PreviewRow({ label, value, highlight }: {
-  label: string; value: string; highlight?: boolean
+function PreviewRow({ icon, label, value, highlight }: {
+  icon: any; label: string; value: string; highlight?: boolean
 }) {
   return (
-    <View style={previewStyles.row}>
-      <Text style={previewStyles.label}>{label}</Text>
-      <Text style={[previewStyles.value, highlight && previewStyles.highlight]}>{value}</Text>
+    <View className="flex-row justify-between py-2 border-b border-border">
+      <View className="flex-row items-center gap-2">
+        {icon}
+        <Text className="text-textSecondary text-sm">{label}</Text>
+      </View>
+      <Text className={`text-sm font-medium flex-1 text-right ${highlight ? 'text-primary text-lg font-bold' : 'text-text'}`}>{value}</Text>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  camera: { flex: 1 },
-  overlay: { flex: 1, justifyContent: 'space-between', padding: SPACING.lg, paddingBottom: 40 },
-  closeBtn: {
-    alignSelf: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)',
-    width: 40, height: 40, borderRadius: 20,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  closeBtnText: { color: COLORS.white, fontSize: 18 },
-  scanFrame: {
-    alignSelf: 'center', width: 280, height: 200,
-    borderRadius: 12, position: 'relative', justifyContent: 'center', alignItems: 'center',
-  },
-  corner: {
-    position: 'absolute', width: 24, height: 24,
-    borderColor: COLORS.primary, borderWidth: 3,
-  },
-  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
-  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
-  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  scanningOverlay: { alignItems: 'center', gap: SPACING.sm },
-  scanningText: { color: COLORS.white, fontSize: 14, fontWeight: '600' },
-  hint: { color: 'rgba(255,255,255,0.8)', textAlign: 'center', fontSize: 14 },
-  captureBtn: {
-    alignSelf: 'center', width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 3, borderColor: COLORS.white,
-  },
-  captureBtnInner: {
-    width: 54, height: 54, borderRadius: 27,
-    backgroundColor: COLORS.white,
-  },
-  permissionBox: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.md, padding: SPACING.xl },
-  permissionEmoji: { fontSize: 64 },
-  permissionTitle: { color: COLORS.text, fontSize: 22, fontWeight: 'bold' },
-  permissionText: { color: COLORS.textSecondary, textAlign: 'center', fontSize: 15 },
-  permissionBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-  },
-  permissionBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-  cancelText: { color: COLORS.textSecondary, fontSize: 15 },
-  previewContainer: { padding: SPACING.lg, gap: SPACING.md },
-  previewTitle: { color: COLORS.text, fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
-  previewCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  previewActions: { flexDirection: 'row', gap: SPACING.sm },
-  retryBtn: {
-    flex: 1, backgroundColor: COLORS.surface, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  retryText: { color: COLORS.textSecondary, fontWeight: '600' },
-  saveBtn: {
-    flex: 2, backgroundColor: COLORS.primary,
-    borderRadius: 12, padding: SPACING.md, alignItems: 'center',
-  },
-  saveBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-})
-
-const previewStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: SPACING.xs, borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  label: { color: COLORS.textSecondary, fontSize: 14 },
-  value: { color: COLORS.text, fontSize: 14, fontWeight: '500', flex: 1, textAlign: 'right' },
-  highlight: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' },
-})

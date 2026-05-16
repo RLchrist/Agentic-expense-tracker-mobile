@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity,
   Modal, TextInput, Alert, ActivityIndicator, RefreshControl
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Plus, Wallet, Trash2, AlertTriangle, X } from 'lucide-react-native'
 import { useBudgetStore } from '../../store/budgetStore'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS } from '../../constants'
 import { Category } from '../../types'
 import { checkBudgetAlerts } from '../../services/notifications/budgetAlerts'
 
@@ -32,7 +33,7 @@ useEffect(() => {
   const overBudget = budgets.filter((b) => b.percentage >= 100).length
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -44,40 +45,44 @@ useEffect(() => {
         }
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Budgets</Text>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
-            <Text style={styles.addBtnText}>+ New</Text>
+        <View className="flex-row justify-between items-center p-6 pb-2">
+          <Text className="text-[26px] font-bold text-text">Budgets</Text>
+          <TouchableOpacity 
+            className="flex-row items-center bg-primary rounded-xl px-4 py-2" 
+            onPress={() => setShowModal(true)}
+          >
+            <Plus size={16} color={COLORS.white} className="mr-1" />
+            <Text className="text-white font-bold text-sm">New</Text>
           </TouchableOpacity>
         </View>
 
         {/* Summary */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Budget</Text>
-            <Text style={styles.summaryValue}>Rs.{totalBudget.toLocaleString('en-NP')}</Text>
+        <View className="flex-row gap-2 px-6 mb-4">
+          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+            <Text className="text-textSecondary text-[11px] mb-1">Total Budget</Text>
+            <Text className="text-text font-bold text-sm">Rs.{totalBudget.toLocaleString('en-NP')}</Text>
           </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Spent</Text>
-            <Text style={[styles.summaryValue, { color: COLORS.secondary }]}>
+          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+            <Text className="text-textSecondary text-[11px] mb-1">Total Spent</Text>
+            <Text className="text-secondary font-bold text-sm">
               Rs.{totalSpent.toLocaleString('en-NP')}
             </Text>
           </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Over Budget</Text>
-            <Text style={[styles.summaryValue, { color: overBudget > 0 ? COLORS.error : COLORS.success }]}>
+          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+            <Text className="text-textSecondary text-[11px] mb-1">Over Budget</Text>
+            <Text className={`font-bold text-sm ${overBudget > 0 ? 'text-error' : 'text-success'}`}>
               {overBudget}
             </Text>
           </View>
         </View>
 
         {/* Budget cards */}
-        <View style={styles.section}>
+        <View className="p-6 pt-0 gap-2">
           {budgets.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>💰</Text>
-              <Text style={styles.emptyText}>No budgets yet</Text>
-              <Text style={styles.emptySubtext}>Tap "+ New" to set a budget</Text>
+            <View className="items-center py-12">
+              <Wallet size={52} color={COLORS.textSecondary} className="mb-2" />
+              <Text className="text-text text-lg font-bold">No budgets yet</Text>
+              <Text className="text-textSecondary text-sm mt-1">Tap "+ New" to set a budget</Text>
             </View>
           ) : (
             budgets.map((budget) => (
@@ -115,41 +120,48 @@ function BudgetCard({ budget, onDelete }: { budget: any; onDelete: () => void })
   const barColor = isOver ? COLORS.error : isWarning ? COLORS.warning : COLORS.success
 
   return (
-    <View style={cardStyles.container}>
-      <View style={cardStyles.top}>
-        <View style={cardStyles.left}>
-          <View style={[cardStyles.iconBox, { backgroundColor: (budget.category?.color ?? COLORS.primary) + '33' }]}>
-            <Text style={cardStyles.icon}>{budget.category?.icon ?? '💰'}</Text>
+    <View className="bg-surface rounded-2xl p-4 border border-border">
+      <View className="flex-row justify-between items-center mb-4">
+        <View className="flex-row items-center gap-2">
+          <View 
+            className="w-11 h-11 rounded-xl justify-center items-center" 
+            style={{ backgroundColor: (budget.category?.color ?? COLORS.primary) + '33' }}
+          >
+            <Text className="text-[22px]">{budget.category?.icon ?? '💰'}</Text>
           </View>
           <View>
-            <Text style={cardStyles.name}>
+            <Text className="text-text font-semibold text-[15px]">
               {budget.category?.name ?? 'Overall'}
             </Text>
-            <Text style={cardStyles.period}>{budget.period} · {budget.start_date}</Text>
+            <Text className="text-textSecondary text-[12px]">{budget.period} · {budget.start_date}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={onDelete}>
-          <Text style={{ fontSize: 18 }}>🗑️</Text>
+          <Trash2 size={20} color={COLORS.error} />
         </TouchableOpacity>
       </View>
 
       {/* Progress bar */}
-      <View style={cardStyles.barBg}>
-        <View style={[cardStyles.barFill, { width: `${budget.percentage}%` as any, backgroundColor: barColor }]} />
+      <View className="h-2 bg-background rounded-full overflow-hidden mb-1">
+        <View 
+          className="h-full rounded-full" 
+          style={{ width: `${Math.min(budget.percentage, 100)}%`, backgroundColor: barColor }} 
+        />
       </View>
 
-      <View style={cardStyles.amounts}>
-        <Text style={cardStyles.spent}>
+      <View className="flex-row justify-between">
+        <Text className="text-text text-[13px] font-semibold">
           Rs.{budget.spent.toLocaleString('en-NP')} spent
         </Text>
-        <Text style={cardStyles.total}>
+        <Text className="text-textSecondary text-[13px]">
           of Rs.{Number(budget.amount).toLocaleString('en-NP')}
         </Text>
       </View>
 
       {isOver && (
-        <View style={cardStyles.alertBadge}>
-          <Text style={cardStyles.alertText}>⚠️ Over budget by Rs.{(budget.spent - Number(budget.amount)).toFixed(0)}</Text>
+        <View className="mt-2 bg-error/15 rounded-lg p-2 items-center border border-error flex-row justify-center gap-2">
+          <AlertTriangle size={14} color={COLORS.error} />
+          <Text className="text-error text-[12px] font-semibold">Over budget by Rs.{(budget.spent - Number(budget.amount)).toFixed(0)}</Text>
         </View>
       )}
     </View>
@@ -191,22 +203,22 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.sheet}>
-          <View style={modalStyles.handle} />
-          <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>New Budget</Text>
+      <View className="flex-1 bg-black/60 justify-end">
+        <View className="bg-surface rounded-t-[24px] p-6 max-h-[85%]">
+          <View className="w-10 h-1 bg-border rounded-full self-center mb-4" />
+          <View className="flex-row justify-between items-center mb-6">
+            <Text className="text-lg font-bold text-text">New Budget</Text>
             <TouchableOpacity onPress={onClose}>
-              <Text style={modalStyles.close}>✕</Text>
+              <X size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Amount */}
-            <View style={modalStyles.field}>
-              <Text style={modalStyles.label}>Budget Amount (NPR)</Text>
+            <View className="mb-4">
+              <Text className="text-textSecondary text-[13px] font-semibold mb-1">Budget Amount (NPR)</Text>
               <TextInput
-                style={modalStyles.input}
+                className="bg-background rounded-xl border border-border p-4 text-text text-base"
                 placeholder="e.g. 5000"
                 placeholderTextColor={COLORS.textSecondary}
                 value={amount}
@@ -216,16 +228,16 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
             </View>
 
             {/* Period */}
-            <View style={modalStyles.field}>
-              <Text style={modalStyles.label}>Period</Text>
-              <View style={modalStyles.row}>
+            <View className="mb-4">
+              <Text className="text-textSecondary text-[13px] font-semibold mb-1">Period</Text>
+              <View className="flex-row gap-2 flex-wrap">
                 {(['monthly', 'weekly'] as const).map((p) => (
                   <TouchableOpacity
                     key={p}
-                    style={[modalStyles.chip, period === p && modalStyles.chipActive]}
+                    className={`px-4 py-2 rounded-full border ${period === p ? 'bg-primary border-primary' : 'bg-background border-border'}`}
                     onPress={() => setPeriod(p)}
                   >
-                    <Text style={[modalStyles.chipText, period === p && modalStyles.chipTextActive]}>
+                    <Text className={`text-[13px] font-medium ${period === p ? 'text-white' : 'text-textSecondary'}`}>
                       {p.charAt(0).toUpperCase() + p.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -234,23 +246,24 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
             </View>
 
             {/* Category */}
-            <View style={modalStyles.field}>
-              <Text style={modalStyles.label}>Category (optional — leave empty for overall)</Text>
+            <View className="mb-4">
+              <Text className="text-textSecondary text-[13px] font-semibold mb-1">Category (optional — leave empty for overall)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={modalStyles.row}>
+                <View className="flex-row gap-2 flex-wrap">
                   <TouchableOpacity
-                    style={[modalStyles.chip, !selectedCategory && modalStyles.chipActive]}
+                    className={`px-4 py-2 rounded-full border ${!selectedCategory ? 'bg-primary border-primary' : 'bg-background border-border'}`}
                     onPress={() => setSelectedCategory(null)}
                   >
-                    <Text style={[modalStyles.chipText, !selectedCategory && modalStyles.chipTextActive]}>
+                    <Text className={`text-[13px] font-medium ${!selectedCategory ? 'text-white' : 'text-textSecondary'}`}>
                       All
                     </Text>
                   </TouchableOpacity>
                   {categories.map((cat) => (
                     <TouchableOpacity
                       key={cat.id}
+                      className="px-4 py-2 rounded-full border"
                       style={[
-                        modalStyles.chip,
+                        { backgroundColor: COLORS.background, borderColor: COLORS.border },
                         selectedCategory?.id === cat.id && {
                           backgroundColor: cat.color + '33',
                           borderColor: cat.color,
@@ -258,7 +271,7 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
                       ]}
                       onPress={() => setSelectedCategory(cat)}
                     >
-                      <Text style={modalStyles.chipText}>{cat.icon} {cat.name}</Text>
+                      <Text className="text-textSecondary text-[13px] font-medium">{cat.icon} {cat.name}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -266,13 +279,13 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
             </View>
 
             <TouchableOpacity
-              style={[modalStyles.saveBtn, loading && { opacity: 0.7 }]}
+              className={`bg-primary rounded-xl p-4 items-center mt-4 ${loading ? 'opacity-70' : ''}`}
               onPress={handleAdd}
               disabled={loading}
             >
               {loading
                 ? <ActivityIndicator color={COLORS.white} />
-                : <Text style={modalStyles.saveBtnText}>Create Budget</Text>
+                : <Text className="text-white font-bold text-base">Create Budget</Text>
               }
             </TouchableOpacity>
           </ScrollView>
@@ -281,99 +294,3 @@ function AddBudgetModal({ visible, categories, onClose, onAdd }: {
     </Modal>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', padding: SPACING.lg, paddingBottom: SPACING.sm,
-  },
-  title: { fontSize: 26, fontWeight: 'bold', color: COLORS.text },
-  addBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 10,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-  },
-  addBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 14 },
-  summaryRow: {
-    flexDirection: 'row', gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg, marginBottom: SPACING.md,
-  },
-  summaryCard: {
-    flex: 1, backgroundColor: COLORS.surface, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  summaryLabel: { color: COLORS.textSecondary, fontSize: 11, marginBottom: 4 },
-  summaryValue: { color: COLORS.text, fontWeight: 'bold', fontSize: 14 },
-  section: { padding: SPACING.lg, paddingTop: 0, gap: SPACING.sm },
-  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyEmoji: { fontSize: 52, marginBottom: SPACING.sm },
-  emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
-})
-
-const cardStyles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  left: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  iconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  icon: { fontSize: 22 },
-  name: { color: COLORS.text, fontWeight: '600', fontSize: 15 },
-  period: { color: COLORS.textSecondary, fontSize: 12 },
-  barBg: {
-    height: 8, backgroundColor: COLORS.background,
-    borderRadius: 4, overflow: 'hidden', marginBottom: SPACING.xs,
-  },
-  barFill: { height: '100%', borderRadius: 4 },
-  amounts: { flexDirection: 'row', justifyContent: 'space-between' },
-  spent: { color: COLORS.text, fontSize: 13, fontWeight: '600' },
-  total: { color: COLORS.textSecondary, fontSize: 13 },
-  alertBadge: {
-    marginTop: SPACING.sm, backgroundColor: COLORS.error + '22',
-    borderRadius: 8, padding: SPACING.xs, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.error,
-  },
-  alertText: { color: COLORS.error, fontSize: 12, fontWeight: '600' },
-})
-
-const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: COLORS.surface, borderTopLeftRadius: 24,
-    borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '85%',
-  },
-  handle: {
-    width: 40, height: 4, backgroundColor: COLORS.border,
-    borderRadius: 2, alignSelf: 'center', marginBottom: SPACING.md,
-  },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: SPACING.lg,
-  },
-  title: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  close: { color: COLORS.textSecondary, fontSize: 20 },
-  field: { marginBottom: SPACING.md },
-  label: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: SPACING.xs },
-  input: {
-    backgroundColor: COLORS.background, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: SPACING.md, color: COLORS.text, fontSize: 16,
-  },
-  row: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
-  chip: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-    borderRadius: 20, backgroundColor: COLORS.background,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  chipText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '500' },
-  chipTextActive: { color: COLORS.white },
-  saveBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    padding: SPACING.md, alignItems: 'center', marginTop: SPACING.md,
-  },
-  saveBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-})

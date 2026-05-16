@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
+  ActivityIndicator, KeyboardAvoidingView,
   Platform, Alert, ScrollView
 } from 'react-native'
+import { Sparkles } from 'lucide-react-native'
 import { supabase } from '../../services/supabase/client'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS } from '../../constants'
 
 export default function RegisterScreen({ navigation }: any) {
   const [fullName, setFullName] = useState('')
@@ -64,21 +65,23 @@ export default function RegisterScreen({ navigation }: any) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.emoji}>✨</Text>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Start tracking your expenses</Text>
+      <ScrollView contentContainerClassName="flex-grow justify-center p-6" keyboardShouldPersistTaps="handled">
+        <View className="items-center mb-8">
+          <View className="mb-4">
+            <Sparkles size={64} color={COLORS.primary} />
+          </View>
+          <Text className="text-3xl font-bold text-text mb-1">Create Account</Text>
+          <Text className="text-base text-textSecondary">Start tracking your expenses</Text>
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
+        <View className="gap-4">
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Full Name</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="Raju Sah"
               placeholderTextColor={COLORS.textSecondary}
               value={fullName}
@@ -87,10 +90,10 @@ export default function RegisterScreen({ navigation }: any) {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Email</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="you@example.com"
               placeholderTextColor={COLORS.textSecondary}
               value={email}
@@ -101,10 +104,10 @@ export default function RegisterScreen({ navigation }: any) {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Password</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="••••••••"
               placeholderTextColor={COLORS.textSecondary}
               value={password}
@@ -113,10 +116,10 @@ export default function RegisterScreen({ navigation }: any) {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
+          <View className="gap-1">
+            <Text className="text-sm font-semibold text-textSecondary">Confirm Password</Text>
             <TextInput
-              style={styles.input}
+              className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="••••••••"
               placeholderTextColor={COLORS.textSecondary}
               value={confirmPassword}
@@ -126,23 +129,23 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            className={`bg-primary rounded-xl p-4 items-center mt-2 ${loading ? 'opacity-70' : ''}`}
             onPress={handleRegister}
             disabled={loading}
           >
             {loading
               ? <ActivityIndicator color={COLORS.white} />
-              : <Text style={styles.buttonText}>Create Account</Text>
+              : <Text className="text-white text-base font-bold">Create Account</Text>
             }
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.linkButton}
+            className="items-center mt-2"
             onPress={() => navigation.navigate('Login')}
           >
-            <Text style={styles.linkText}>
+            <Text className="text-textSecondary text-sm">
               Already have an account?{' '}
-              <Text style={styles.linkHighlight}>Sign In</Text>
+              <Text className="text-primary font-bold">Sign In</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -150,36 +153,3 @@ export default function RegisterScreen({ navigation }: any) {
     </KeyboardAvoidingView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg },
-  header: { alignItems: 'center', marginBottom: SPACING.xl },
-  emoji: { fontSize: 64, marginBottom: SPACING.md },
-  title: { fontSize: 32, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.xs },
-  subtitle: { fontSize: 16, color: COLORS.textSecondary },
-  form: { gap: SPACING.md },
-  inputGroup: { gap: SPACING.xs },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  input: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    color: COLORS.text,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-  linkButton: { alignItems: 'center', marginTop: SPACING.sm },
-  linkText: { color: COLORS.textSecondary, fontSize: 14 },
-  linkHighlight: { color: COLORS.primary, fontWeight: 'bold' },
-})

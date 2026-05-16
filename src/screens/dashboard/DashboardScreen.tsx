@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Modal, Platform
+  View, Text, ScrollView,
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Platform
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
@@ -9,10 +9,14 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition'
+import { 
+  LogOut, Plus, Image as ImageIcon, Camera, 
+  Mic, Square, ArrowRight, Box, Wind 
+} from 'lucide-react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useBudgetStore } from '../../store/budgetStore'
-import { COLORS, SPACING } from '../../constants'
+import { COLORS } from '../../constants'
 import { Expense } from '../../types'
 import { processRecurringExpenses, processBudgetResets } from '../../services/recurring/recurringService'
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
@@ -174,7 +178,7 @@ export default function DashboardScreen({ navigation }: any) {
   const recentExpenses = expenses.slice(0, 5)
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -186,90 +190,102 @@ export default function DashboardScreen({ navigation }: any) {
         }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View className="flex-row justify-between items-center px-6 pt-4 pb-2">
           <View>
-            <Text style={styles.greeting}>Good day 👋</Text>
-            <Text style={styles.name}>{profile?.full_name ?? 'User'}</Text>
+            <Text className="text-[13px] text-textSecondary font-medium">Good day 👋</Text>
+            <Text className="text-xl font-bold text-text mt-[2px]">{profile?.full_name ?? 'User'}</Text>
           </View>
-          <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <TouchableOpacity onPress={signOut} className="flex-row items-center py-1.5 px-3 bg-surface rounded-full border border-border">
+            <LogOut size={14} color={COLORS.textSecondary} className="mr-1.5" />
+            <Text className="text-textSecondary text-[12px] font-semibold">Sign Out</Text>
           </TouchableOpacity>
         </View>
 
         {/* Modern Balance Header */}
-        <View style={styles.modernHeader}>
-          <Text style={styles.modernLabel}>Total Balance</Text>
-          <Text style={styles.modernAmount}>
+        <View 
+          className="m-6 p-8 bg-primary rounded-[32px] items-center"
+          style={{
+            shadowColor: COLORS.primary,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 10,
+          }}
+        >
+          <Text className="text-white/70 text-sm font-medium">Total Balance</Text>
+          <Text className="text-white text-3xl font-bold my-1">
             Rs. {monthTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
           </Text>
           
-          <View style={styles.statsRow}>
-            <View style={styles.statPill}>
-              <Text style={styles.statLabel}>Today</Text>
-              <Text style={styles.statValue}>Rs. {todayTotal.toFixed(0)}</Text>
+          <View className="flex-row items-center bg-white/15 rounded-2xl mt-4 px-6 py-2">
+            <View className="items-center px-4">
+              <Text className="text-white/60 text-[10px] uppercase tracking-widest">Today</Text>
+              <Text className="text-white text-sm font-bold mt-[2px]">Rs. {todayTotal.toFixed(0)}</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statPill}>
-              <Text style={styles.statLabel}>Week</Text>
-              <Text style={styles.statValue}>Rs. {weekTotal.toFixed(0)}</Text>
+            <View className="w-[1px] h-5 bg-white/20" />
+            <View className="items-center px-4">
+              <Text className="text-white/60 text-[10px] uppercase tracking-widest">Week</Text>
+              <Text className="text-white text-sm font-bold mt-[2px]">Rs. {weekTotal.toFixed(0)}</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.inputContainer}>
+        <View className="px-6 mb-8 z-10">
           {showActionMenu && (
-            <View style={styles.geminiMenu}>
+            <View 
+              className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
+            >
               <TouchableOpacity 
-                style={styles.geminiItem}
+                className="flex-row items-center p-4 gap-4"
                 onPress={() => {
                   setShowActionMenu(false)
                   navigation.navigate('AddExpense')
                 }}
               >
-                <Text style={styles.geminiIcon}>📝</Text>
-                <Text style={styles.geminiText}>Manual Add</Text>
+                <Plus size={20} color={COLORS.white} />
+                <Text className="text-white text-[15px] font-medium">Manual Add</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={styles.geminiItem}
+                className="flex-row items-center p-4 gap-4"
                 onPress={() => {
                   setShowActionMenu(false)
                   openGallery()
                 }}
               >
-                <Text style={styles.geminiIcon}>🖼️</Text>
-                <Text style={styles.geminiText}>Photos & Files</Text>
+                <ImageIcon size={20} color={COLORS.white} />
+                <Text className="text-white text-[15px] font-medium">Photos & Files</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <View style={styles.inputBar}>
+          <View className="bg-surface rounded-[28px] p-1 border border-border shadow-md">
             {attachedImages.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentScroll}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="py-2 px-1">
                 {attachedImages.map((uri, idx) => (
-                  <View key={idx} style={styles.attachmentWrapper}>
-                    <Image source={{ uri }} style={styles.attachmentImage} />
+                  <View key={idx} className="mr-2 relative">
+                    <Image source={{ uri }} className="w-[70px] h-[70px] rounded-xl border border-border" />
                     <TouchableOpacity
-                      style={styles.removeAttachment}
+                      className="absolute -top-1.5 -right-1.5 bg-error w-[22px] h-[22px] rounded-full justify-center items-center border-2 border-surface"
                       onPress={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
                     >
-                      <Text style={styles.removeText}>✕</Text>
+                      <Text className="text-white text-[12px] font-bold">✕</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
               </ScrollView>
             )}
 
-            <View style={styles.inputActionRow}>
+            <View className="flex-row items-center py-0.5">
               <TouchableOpacity 
-                style={styles.actionIcon}
+                className="w-[38px] h-[38px] rounded-full justify-center items-center"
                 onPress={() => setShowActionMenu(!showActionMenu)}
               >
-                <Text style={styles.plusIcon}>+</Text>
+                <Plus size={24} color={COLORS.text} />
               </TouchableOpacity>
               
               <TextInput
-                style={styles.textInput}
+                className="flex-1 text-text text-[15px] px-4 max-h-[100px]"
                 placeholder="How much did you spend?"
                 placeholderTextColor={COLORS.textSecondary}
                 value={inputText}
@@ -277,47 +293,51 @@ export default function DashboardScreen({ navigation }: any) {
                 multiline
               />
 
-              <View style={styles.inputActions}>
+              <View className="flex-row gap-4 px-2">
                 <TouchableOpacity onPress={openCamera}>
-                  <Text style={styles.actionEmoji}>📷</Text>
+                  <Camera size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[isRecording && styles.recordingActive]}
+                  className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
                   onPress={isRecording ? stopVoiceInput : startVoiceInput}
                 >
-                  <Text style={styles.actionEmoji}>{isRecording ? '⏹️' : '🎙️'}</Text>
+                  {isRecording ? (
+                    <Square size={20} color={COLORS.error} />
+                  ) : (
+                    <Mic size={20} color={COLORS.textSecondary} />
+                  )}
                 </TouchableOpacity>
               </View>
 
               {(inputText.trim() !== '' || attachedImages.length > 0) && (
                 <TouchableOpacity 
-                  style={styles.sendBtn}
+                  className="w-[46px] h-[46px] rounded-full bg-primary justify-center items-center ml-1 shadow-md"
                   onPress={handleManualParse}
                   disabled={isParsing}
                 >
-                  {isParsing ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.sendText}>→</Text>}
+                  {isParsing ? <ActivityIndicator size="small" color={COLORS.white} /> : <ArrowRight size={24} color={COLORS.white} />}
                 </TouchableOpacity>
               )}
             </View>
           </View>
         </View>
 
-        <View style={styles.recentHeader}>
-          <Text style={styles.recentTitle}>Recent Transactions</Text>
+        <View className="flex-row justify-between items-center px-6 mb-4">
+          <Text className="text-text text-lg font-bold">Recent Transactions</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Expenses')}>
-            <Text style={styles.seeAll}>See All</Text>
+            <Text className="text-primary font-semibold">See All</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.listContainer}>
+        <View className="px-6 pb-20">
           {recentExpenses.length > 0 ? (
             recentExpenses.map(item => (
               <ExpenseItem key={item.id} expense={item} onDelete={handleDeleteExpense} />
             ))
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🎐</Text>
-              <Text style={styles.emptyText}>No expenses yet</Text>
+            <View className="items-center py-12">
+              <Wind size={48} color={COLORS.textSecondary} className="mb-2" />
+              <Text className="text-text text-lg font-bold">No expenses yet</Text>
             </View>
           )}
         </View>
@@ -335,203 +355,20 @@ export default function DashboardScreen({ navigation }: any) {
 
 function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: string) => void }) {
   return (
-    <View style={itemStyles.container}>
-      <View style={[itemStyles.iconBox, { backgroundColor: expense.category?.color + '22' ?? '#33333322' }]}>
-        <Text style={itemStyles.icon}>{expense.category?.icon ?? '📦'}</Text>
+    <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
+      <View 
+        className="w-11 h-11 rounded-xl justify-center items-center" 
+        style={{ backgroundColor: expense.category?.color + '22' ?? '#33333322' }}
+      >
+        <Text className="text-[22px]">{expense.category?.icon ?? '📦'}</Text>
       </View>
-      <View style={itemStyles.info}>
-        <Text style={itemStyles.title}>{expense.title}</Text>
-        <Text style={itemStyles.meta}>{expense.category?.name ?? 'Uncategorized'}</Text>
+      <View className="flex-1 ml-3">
+        <Text className="text-text font-semibold text-[15px]">{expense.title}</Text>
+        <Text className="text-textSecondary text-[12px] mt-0.5">{expense.category?.name ?? 'Uncategorized'}</Text>
       </View>
-      <View style={itemStyles.right}>
-        <Text style={itemStyles.amount}>Rs. {Number(expense.amount).toFixed(0)}</Text>
+      <View className="items-end">
+        <Text className="text-text font-bold text-[15px]">Rs. {Number(expense.amount).toFixed(0)}</Text>
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md, paddingBottom: SPACING.sm,
-  },
-  greeting: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  name: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginTop: 2 },
-  signOutBtn: {
-    paddingVertical: 6, paddingHorizontal: 12,
-    backgroundColor: COLORS.surface, borderRadius: 20,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  signOutText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
-  
-  modernHeader: {
-    margin: SPACING.lg,
-    padding: SPACING.xl,
-    backgroundColor: COLORS.primary,
-    borderRadius: 32,
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modernLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '500' },
-  modernAmount: { color: COLORS.white, fontSize: 32, fontWeight: 'bold', marginVertical: SPACING.xs },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20,
-    marginTop: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  statPill: { alignItems: 'center', paddingHorizontal: SPACING.md },
-  statLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
-  statValue: { color: COLORS.white, fontSize: 14, fontWeight: '700', marginTop: 2 },
-  statDivider: { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
-
-  inputContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.xl,
-    zIndex: 10,
-  },
-  inputBar: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 28,
-    padding: SPACING.xs,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  inputActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  actionIcon: {
-    width: 38, height: 38, borderRadius: 19,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  plusIcon: { color: COLORS.text, fontSize: 24, fontWeight: '300' },
-  textInput: {
-    flex: 1, color: COLORS.text, fontSize: 15,
-    paddingHorizontal: SPACING.md, maxHeight: 100,
-  },
-  inputActions: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.sm },
-  actionEmoji: { fontSize: 20 },
-  recordingActive: {
-    backgroundColor: COLORS.error + '22',
-    borderRadius: 15,
-    padding: 2,
-  },
-  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
-  emptyEmoji: { fontSize: 48, marginBottom: SPACING.sm },
-  emptyText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
-
-  sendBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
-    marginLeft: SPACING.xs,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  sendText: { color: COLORS.white, fontSize: 24, fontWeight: 'bold' },
-
-  attachmentScroll: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: 4,
-  },
-  attachmentWrapper: {
-    marginRight: SPACING.sm,
-    position: 'relative',
-  },
-  attachmentImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  removeAttachment: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: COLORS.error,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.surface,
-  },
-  removeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  
-  // Gemini-style Menu
-  geminiMenu: {
-    position: 'absolute',
-    bottom: 80, // Slightly higher to account for images
-    left: 0,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 20,
-    width: 200,
-    padding: SPACING.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-    zIndex: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  geminiItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  geminiIcon: {
-    fontSize: 20,
-    color: COLORS.white,
-  },
-  geminiText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-})
-
-const itemStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: 12,
-    padding: SPACING.md, marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: COLORS.border
-  },
-  iconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  icon: { fontSize: 22 },
-  info: { flex: 1, marginLeft: SPACING.sm },
-  title: { color: COLORS.text, fontWeight: '600', fontSize: 15 },
-  meta: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
-  right: { alignItems: 'flex-end', gap: 4 },
-  amount: { color: COLORS.text, fontWeight: 'bold', fontSize: 15 },
-  delete: { fontSize: 16 },
-})
