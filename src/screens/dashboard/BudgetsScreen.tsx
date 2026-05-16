@@ -127,9 +127,12 @@ function BudgetCard({ budget, onDelete }: { budget: any; onDelete: () => void })
             className="w-11 h-11 rounded-xl justify-center items-center" 
             style={{ backgroundColor: (budget.category?.color ?? COLORS.primary) + '33' }}
           >
-            <Text className="text-[22px]">{budget.category?.icon ?? '💰'}</Text>
-          </View>
-          <View>
+            {budget.category?.icon ? (
+              <Text className="text-[22px]">{budget.category.icon}</Text>
+            ) : (
+              <Wallet size={24} color={budget.category?.color ?? COLORS.primary} />
+            )}
+          </View>          <View>
             <Text className="text-text font-semibold text-[15px]">
               {budget.category?.name ?? 'Overall'}
             </Text>

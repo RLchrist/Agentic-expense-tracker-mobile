@@ -111,7 +111,7 @@ export default function ExpensesScreen({ navigation }: any) {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[{ id: null, name: 'All Categories', icon: '📦' }, ...useExpenseStore.getState().categories]}
+          data={[{ id: null, name: 'All Categories', icon: '' }, ...useExpenseStore.getState().categories]}
           keyExtractor={(item) => item.id ?? 'all'}
           contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
           renderItem={({ item }) => (
@@ -119,7 +119,11 @@ export default function ExpensesScreen({ navigation }: any) {
               className={`flex-row items-center px-4 py-1.5 rounded-full border ${selectedCategory === item.id ? 'bg-primary border-primary' : 'bg-surface border-border'}`}
               onPress={() => setSelectedCategory(item.id)}
             >
-              <Text className="mr-1.5 text-base">{item.icon}</Text>
+              {item.icon ? (
+                <Text className="mr-1.5 text-base">{item.icon}</Text>
+              ) : (
+                <List size={14} color={selectedCategory === item.id ? COLORS.white : COLORS.textSecondary} className="mr-1.5" />
+              )}
               <Text className={`text-[13px] font-medium ${selectedCategory === item.id ? 'text-white' : 'text-textSecondary'}`}>
                 {item.name}
               </Text>
@@ -180,7 +184,11 @@ function ExpenseRow({
         className="w-[46px] h-[46px] rounded-xl justify-center items-center" 
         style={{ backgroundColor: (expense.category?.color ?? '#888') + '33' }}
       >
-        <Text className="text-[22px]">{expense.category?.icon ?? '📦'}</Text>
+        {expense.category?.icon ? (
+          <Text className="text-[22px]">{expense.category.icon}</Text>
+        ) : (
+          <List size={24} color={expense.category?.color ?? COLORS.primary} />
+        )}
       </View>
 
       <View className="flex-1 ml-3">

@@ -360,7 +360,11 @@ function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: s
         className="w-11 h-11 rounded-xl justify-center items-center" 
         style={{ backgroundColor: expense.category?.color + '22' ?? '#33333322' }}
       >
-        <Text className="text-[22px]">{expense.category?.icon ?? '📦'}</Text>
+        {expense.category?.icon ? (
+          <Text className="text-[22px]">{expense.category.icon}</Text>
+        ) : (
+          <Box size={24} color={expense.category?.color ?? COLORS.primary} />
+        )}
       </View>
       <View className="flex-1 ml-3">
         <Text className="text-text font-semibold text-[15px]">{expense.title}</Text>
