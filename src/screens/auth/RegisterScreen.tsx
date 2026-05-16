@@ -5,63 +5,64 @@ import {
   Platform, Alert, ScrollView
 } from 'react-native'
 import { Sparkles } from 'lucide-react-native'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase/client'
 import { COLORS } from '../../constants'
 
 export default function RegisterScreen({ navigation }: any) {
+  const { t } = useTranslation()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
- const handleRegister = async () => {
-  if (!fullName || !email || !password || !confirmPassword) {
-    Alert.alert('Error', 'Please fill in all fields')
-    return
-  }
-  if (password !== confirmPassword) {
-    Alert.alert('Error', 'Passwords do not match')
-    return
-  }
-  if (password.length < 6) {
-    Alert.alert('Error', 'Password must be at least 6 characters')
-    return
-  }
-  setLoading(true)
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
-  })
-  if (error) {
-    Alert.alert('Registration Failed', error.message)
-    setLoading(false)
-    return
-  }
-
-  if (data.user) {
-    // Wait briefly for auth to settle
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        currency: 'NPR',
-      })
-
-    if (profileError) {
-      console.error('Profile insert error:', profileError.message)
+  const handleRegister = async () => {
+    if (!fullName || !email || !password || !confirmPassword) {
+      Alert.alert(t('errors.error'), t('auth.please_fill_fields'))
+      return
+    }
+    if (password !== confirmPassword) {
+      Alert.alert(t('errors.error'), t('auth.passwords_no_match'))
+      return
+    }
+    if (password.length < 6) {
+      Alert.alert(t('errors.error'), t('auth.password_min'))
+      return
+    }
+    setLoading(true)
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    })
+    if (error) {
+      Alert.alert(t('auth.registration_failed'), error.message)
+      setLoading(false)
+      return
     }
 
-    Alert.alert('Success', 'Account created! Please sign in.')
-    navigation.navigate('Login')
+    if (data.user) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          email,
+          full_name: fullName,
+          currency: 'NPR',
+        })
+
+      if (profileError) {
+        console.error('Profile insert error:', profileError.message)
+      }
+
+      Alert.alert(t('auth.account_created'))
+      navigation.navigate('Login')
+    }
+    setLoading(false)
   }
-  setLoading(false)
-}
 
   return (
     <KeyboardAvoidingView
@@ -73,13 +74,13 @@ export default function RegisterScreen({ navigation }: any) {
           <View className="mb-4">
             <Sparkles size={64} color={COLORS.primary} />
           </View>
-          <Text className="text-3xl font-bold text-text mb-1">Create Account</Text>
-          <Text className="text-base text-textSecondary">Start tracking your expenses</Text>
+          <Text className="text-3xl font-bold text-text mb-1">{t('auth.create_account')}</Text>
+          <Text className="text-base text-textSecondary">{t('auth.start_tracking')}</Text>
         </View>
 
         <View className="gap-4">
           <View className="gap-1">
-            <Text className="text-sm font-semibold text-textSecondary">Full Name</Text>
+            <Text className="text-sm font-semibold text-textSecondary">{t('auth.full_name')}</Text>
             <TextInput
               className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="Raju Sah"
@@ -91,7 +92,7 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <View className="gap-1">
-            <Text className="text-sm font-semibold text-textSecondary">Email</Text>
+            <Text className="text-sm font-semibold text-textSecondary">{t('auth.email')}</Text>
             <TextInput
               className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="you@example.com"
@@ -105,7 +106,7 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <View className="gap-1">
-            <Text className="text-sm font-semibold text-textSecondary">Password</Text>
+            <Text className="text-sm font-semibold text-textSecondary">{t('auth.password')}</Text>
             <TextInput
               className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="••••••••"
@@ -117,7 +118,7 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <View className="gap-1">
-            <Text className="text-sm font-semibold text-textSecondary">Confirm Password</Text>
+            <Text className="text-sm font-semibold text-textSecondary">{t('auth.confirm_password')}</Text>
             <TextInput
               className="bg-surface border border-border rounded-xl p-4 text-text text-base"
               placeholder="••••••••"
@@ -135,7 +136,7 @@ export default function RegisterScreen({ navigation }: any) {
           >
             {loading
               ? <ActivityIndicator color={COLORS.white} />
-              : <Text className="text-white text-base font-bold">Create Account</Text>
+              : <Text className="text-white text-base font-bold">{t('auth.sign_up')}</Text>
             }
           </TouchableOpacity>
 
@@ -144,8 +145,8 @@ export default function RegisterScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Login')}
           >
             <Text className="text-textSecondary text-sm">
-              Already have an account?{' '}
-              <Text className="text-primary font-bold">Sign In</Text>
+              {t('auth.has_account')}{' '}
+              <Text className="text-primary font-bold">{t('auth.sign_in')}</Text>
             </Text>
           </TouchableOpacity>
         </View>

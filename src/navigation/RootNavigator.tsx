@@ -1,4 +1,5 @@
-import { NavigationContainer } from '@react-navigation/native'
+import { useColorScheme } from 'nativewind'
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useAuthStore } from '../store/authStore'
 import LoginScreen from '../screens/auth/LoginScreen'
@@ -11,6 +12,20 @@ const Stack = createNativeStackNavigator()
 
 export default function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuthStore()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme === 'dark'
+
+  const navTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: isDark ? '#0F0F1A' : '#F8F9FA',
+      card: isDark ? '#1A1A2E' : '#FFFFFF',
+      text: isDark ? '#FFFFFF' : '#1C1C28',
+      border: isDark ? '#2A2A4A' : '#E5E7EB',
+      primary: COLORS.primary,
+    },
+  }
 
   if (isLoading) {
     return (
@@ -21,7 +36,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={MainNavigator} />

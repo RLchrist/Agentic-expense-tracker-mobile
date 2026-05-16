@@ -1,17 +1,32 @@
 import { useEffect } from 'react'
+import { View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import NetInfo from '@react-native-community/netinfo'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { useColorScheme } from 'nativewind'
+import { Appearance } from 'react-native'
 import { supabase } from './src/services/supabase/client'
 import { useAuthStore } from './src/store/authStore'
+import { useSettingsStore } from './src/store/settingsStore'
 import RootNavigator from './src/navigation/RootNavigator'
 import { drainQueue, getPendingCount } from './src/services/sync/offlineSync'
+import './src/i18n'
 
 export default function App() {
   const { setSession } = useAuthStore()
+  const { theme } = useSettingsStore()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme === 'dark'
 
   useEffect(() => {
-    // Auth listener
+    if (theme === 'system') {
+      Appearance.setColorScheme(null)
+    } else {
+      Appearance.setColorScheme(theme)
+    }
+  }, [theme])
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
@@ -19,11 +34,10 @@ export default function App() {
       (_event, session) => setSession(session)
     )
 
-    // Network listener — drain queue when back online
     let isSyncing = false
     const unsubscribeNet = NetInfo.addEventListener(async (state) => {
       if (state.isConnected && state.isInternetReachable && !isSyncing) {
-        const pending = getPendingCount()
+        const pending = await getPendingCount()
         if (pending > 0) {
           isSyncing = true
           console.log(`Back online — syncing ${pending} queued operations...`)
@@ -44,9 +58,11 @@ export default function App() {
   }, [])
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <RootNavigator />
-    </SafeAreaProvider>
+    <View className={`flex-1 ${isDark ? 'dark' : ''}`}>
+      <SafeAreaProvider>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <RootNavigator />
+      </SafeAreaProvider>
+    </View>
   )
 }

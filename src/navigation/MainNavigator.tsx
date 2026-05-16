@@ -1,8 +1,9 @@
+import { useColorScheme } from 'nativewind'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Home, List, BarChart2, Wallet, Settings } from 'lucide-react-native'
-import { COLORS } from '../constants'
+import { themeColors } from '../constants'
 import DashboardScreen from '../screens/dashboard/DashboardScreen'
 import BudgetsScreen from '../screens/dashboard/BudgetsScreen'
 import AnalyticsScreen from '../screens/dashboard/AnalyticsScreen'
@@ -15,20 +16,24 @@ const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
 function HomeTabs() {
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme === 'dark'
+  const colors = themeColors(isDark)
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
       }}
     >
       <Tab.Screen

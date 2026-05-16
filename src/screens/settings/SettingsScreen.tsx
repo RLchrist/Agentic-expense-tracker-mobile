@@ -6,26 +6,37 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { 
   RefreshCw, Cloud, Bell, Globe, Smartphone, 
   Sparkles, Database, BarChart2, FileText, 
-  Trash2, LogOut, ChevronRight, Coins
+  Trash2, LogOut, ChevronRight, Coins,
+  Fingerprint, Sun, Languages
 } from 'lucide-react-native'
+import * as LocalAuthentication from 'expo-local-authentication'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS } from '../../constants'
+import { useSettingsStore } from '../../store/settingsStore'
+import { COLORS, themeColors } from '../../constants'
 import { getPendingCount } from '../../services/sync/offlineSync'
 import { useState, useEffect } from 'react'
+import { useColorScheme } from 'nativewind'
 import { requestNotificationPermission, scheduleDailyReminder } from '../../services/notifications/budgetAlerts'
 import { exportToCSV, exportToPDF } from '../../services/export/exportService'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../services/supabase/client'
+import { changeLang } from '../../i18n'
 
 export default function SettingsScreen() {
+  const { t, i18n } = useTranslation()
   const { profile, signOut, updateProfile } = useAuthStore()
   const { expenses, categories } = useExpenseStore()
+  const { isBiometricEnabled, setBiometricEnabled, theme, setTheme } = useSettingsStore()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme === 'dark'
+  const colors = themeColors(isDark)
   const [pendingSync, setPendingSync] = useState(0)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
   useEffect(() => {
-    setPendingSync(getPendingCount())
+    getPendingCount().then(setPendingSync)
   }, [])
 
   const handleAvatarUpload = async () => {
@@ -60,38 +71,85 @@ export default function SettingsScreen() {
   const totalCategories = categories.length
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: signOut },
+    Alert.alert(t('settings.sign_out_confirm'), '', [
+      { text: t('actions.cancel'), style: 'cancel' },
+      { text: t('actions.sign_out'), style: 'destructive', onPress: signOut },
     ])
   }
 
   const handleClearData = () => {
     Alert.alert(
-      'Clear All Data',
-      'This will delete all your expenses permanently. This cannot be undone.',
+      t('settings.clear_data_title'),
+      t('settings.clear_data_confirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: () => Alert.alert('Info', 'Feature coming soon') },
+        { text: t('actions.cancel'), style: 'cancel' },
+        { text: t('actions.clear'), style: 'destructive', onPress: () => Alert.alert('Info', t('settings.feature_coming')) },
       ]
     )
   }
 
+  const handleBiometricToggle = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync()
+    if (!hasHardware) {
+      Alert.alert(t('errors.error'), t('biometric.no_hardware'))
+      return
+    }
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync()
+    if (!isEnrolled) {
+      Alert.alert(t('errors.error'), t('biometric.not_enrolled'))
+      return
+    }
+
+    if (isBiometricEnabled) {
+      setBiometricEnabled(false)
+    } else {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t('biometric.authenticate_to_enable'),
+        fallbackLabel: t('biometric.use_password'),
+      })
+      if (result.success) {
+        setBiometricEnabled(true)
+      }
+    }
+  }
+
+  const handleThemeChange = () => {
+    Alert.alert(
+      t('settings.theme'),
+      t('themes.select_theme'),
+      [
+        { text: t('themes.system'), onPress: () => setTheme('system') },
+        { text: t('themes.light'), onPress: () => setTheme('light') },
+        { text: t('themes.dark'), onPress: () => setTheme('dark') },
+        { text: t('actions.cancel'), style: 'cancel' },
+      ]
+    )
+  }
+
+  const handleLanguageToggle = () => {
+    const newLang = i18n.language === 'np' ? 'en' : 'np'
+    changeLang(newLang)
+  }
+
+  const languageLabel = i18n.language === 'np'
+    ? t('languages.nepali')
+    : t('languages.english')
+
+  const themeLabel = theme === 'system' ? t('themes.system') : theme === 'light' ? t('themes.light') : t('themes.dark')
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View className="p-6 pb-2">
-          <Text className="text-[26px] font-bold text-text">Settings</Text>
+          <Text className="text-[26px] font-bold text-text">{t('settings.title')}</Text>
         </View>
 
-        {/* Profile card */}
         <View className="flex-row items-center m-6 mt-0 bg-surface rounded-2xl p-6 border border-border gap-4">
-          <View className="w-[60px] h-[60px] rounded-full bg-primary justify-center items-center">
+          <TouchableOpacity onPress={handleAvatarUpload} className="w-[60px] h-[60px] rounded-full bg-primary justify-center items-center">
             <Text className="text-white text-[26px] font-bold">
               {profile?.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
             </Text>
-          </View>
+          </TouchableOpacity>
           <View className="flex-1 gap-1">
             <Text className="text-text text-lg font-bold">{profile?.full_name ?? 'User'}</Text>
             <Text className="text-textSecondary text-[13px]">{profile?.email ?? ''}</Text>
@@ -102,50 +160,47 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Stats */}
         <View className="flex-row gap-2 px-6 mb-4">
           <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
             <Text className="text-text text-lg font-bold">{totalExpenses}</Text>
-            <Text className="text-textSecondary text-[11px] mt-0.5">Expenses</Text>
+            <Text className="text-textSecondary text-[11px] mt-0.5">{t('expenses.title')}</Text>
           </View>
           <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
             <Text className="text-text text-lg font-bold">{totalCategories}</Text>
-            <Text className="text-textSecondary text-[11px] mt-0.5">Categories</Text>
+            <Text className="text-textSecondary text-[11px] mt-0.5">{t('add_expense.category')}</Text>
           </View>
           <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
             <Text className="text-text text-lg font-bold">
               Rs.{(totalSpent / 1000).toFixed(1)}k
             </Text>
-            <Text className="text-textSecondary text-[11px] mt-0.5">Total Spent</Text>
+            <Text className="text-textSecondary text-[11px] mt-0.5">{t('analytics.total_spent', { period: '' })}</Text>
           </View>
         </View>
 
-        {/* Sync status */}
         <View className="px-6 mb-4">
-          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">Sync</Text>
+          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.sync')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <SettingsRow
-              icon={<RefreshCw size={18} color={COLORS.textSecondary} />}
-              label="Pending sync items"
-              value={pendingSync > 0 ? `${pendingSync} pending` : 'All synced'}
+              icon={<RefreshCw size={18} color={colors.textSecondary} />}
+              label={t('settings.pending_sync')}
+              value={pendingSync > 0 ? t('settings.pending_count', { count: pendingSync }) : t('settings.all_synced')}
               valueColor={pendingSync > 0 ? COLORS.warning : COLORS.success}
             />
             <SettingsRow
-              icon={<Cloud size={18} color={COLORS.textSecondary} />}
-              label="Cloud backup"
+              icon={<Cloud size={18} color={colors.textSecondary} />}
+              label={t('settings.cloud_backup')}
               value="Supabase"
             />
           </View>
         </View>
 
-        {/* Preferences */}
         <View className="px-6 mb-4">
-          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">Preferences</Text>
+          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.preferences')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <View className="flex-row items-center justify-between p-4 border-b border-border">
               <View className="flex-row items-center gap-2">
-                <Bell size={18} color={COLORS.textSecondary} />
-                <Text className="text-text text-[15px]">Budget alerts</Text>
+                <Bell size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.budget_alerts')}</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
@@ -155,89 +210,111 @@ export default function SettingsScreen() {
                     if (granted) {
                       await scheduleDailyReminder()
                       setNotificationsEnabled(true)
-                      Alert.alert('✅ Enabled', 'You will get daily reminders at 9 PM')
+                      Alert.alert('✅', t('settings.daily_reminder_enabled'))
                     } else {
-                      Alert.alert('Permission denied', 'Enable notifications in phone settings')
+                      Alert.alert(t('errors.error'), t('settings.permission_denied'))
                     }
                   } else {
                     setNotificationsEnabled(false)
                   }
                 }}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                trackColor={{ false: colors.border, true: COLORS.primary }}
                 thumbColor={COLORS.white}
               />
             </View>
-            <SettingsRow icon={<Coins size={18} color={COLORS.textSecondary} />} label="Currency" value={profile?.currency ?? 'NPR'} />
-            <SettingsRow icon={<Globe size={18} color={COLORS.textSecondary} />} label="Language" value="English" />
+            <SettingsRow icon={<Coins size={18} color={colors.textSecondary} />} label={t('settings.currency')} value={profile?.currency ?? 'NPR'} />
+            
+            <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleBiometricToggle}>
+              <View className="flex-row items-center gap-2">
+                <Fingerprint size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.biometric_login')}</Text>
+              </View>
+              <Text className={`text-sm font-medium ${isBiometricEnabled ? 'text-primary' : 'text-textSecondary'}`}>
+                {isBiometricEnabled ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleThemeChange}>
+              <View className="flex-row items-center gap-2">
+                <Sun size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.theme')}</Text>
+              </View>
+              <Text className="text-textSecondary text-sm">{themeLabel}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleLanguageToggle}>
+              <View className="flex-row items-center gap-2">
+                <Languages size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.language')}</Text>
+              </View>
+              <Text className="text-textSecondary text-sm">{languageLabel}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* About */}
         <View className="px-6 mb-4">
-          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">About</Text>
+          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.about')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
-            <SettingsRow icon={<Smartphone size={18} color={COLORS.textSecondary} />} label="App version" value="1.0.0" />
-            <SettingsRow icon={<Sparkles size={18} color={COLORS.textSecondary} />} label="AI model" value="Llama 3.1" />
-            <SettingsRow icon={<Database size={18} color={COLORS.textSecondary} />} label="Database" value="Supabase" />
+            <SettingsRow icon={<Smartphone size={18} color={colors.textSecondary} />} label={t('settings.app_version')} value="1.0.0" />
+            <SettingsRow icon={<Sparkles size={18} color={colors.textSecondary} />} label={t('settings.ai_model')} value="Llama 3.1" />
+            <SettingsRow icon={<Database size={18} color={colors.textSecondary} />} label={t('settings.database')} value="Supabase" />
           </View>
         </View>
 
-        {/* Export */}
         <View className="px-6 mb-4">
-          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">Export Data</Text>
+          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.export_data')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <TouchableOpacity
               className="flex-row items-center justify-between p-4 border-b border-border"
               onPress={async () => {
                 try {
                   await exportToCSV(expenses)
-                } catch (e) {
-                  Alert.alert('Error', 'Could not export CSV')
+                } catch {
+                  Alert.alert(t('errors.error'), t('errors.could_not_export_csv'))
                 }
               }}
             >
               <View className="flex-row items-center gap-2">
-                <BarChart2 size={18} color={COLORS.textSecondary} />
-                <Text className="text-text text-[15px]">Export as CSV</Text>
+                <BarChart2 size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.export_csv')}</Text>
               </View>
-              <ChevronRight size={20} color={COLORS.textSecondary} />
+              <ChevronRight size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-row items-center justify-between p-4 border-b border-border"
               onPress={async () => {
                 try {
                   await exportToPDF(expenses, profile?.full_name ?? 'User', 'All Time')
-                } catch (e) {
-                  Alert.alert('Error', 'Could not export PDF')
+                } catch {
+                  Alert.alert(t('errors.error'), t('errors.could_not_export_pdf'))
                 }
               }}
             >
               <View className="flex-row items-center gap-2">
-                <FileText size={18} color={COLORS.textSecondary} />
-                <Text className="text-text text-[15px]">Export as PDF</Text>
+                <FileText size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">{t('settings.export_pdf')}</Text>
               </View>
-              <ChevronRight size={20} color={COLORS.textSecondary} />
+              <ChevronRight size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Danger zone */}
         <View className="px-6 mb-4">
-          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">Account</Text>
+          <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.account')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleClearData}>
               <View className="flex-row items-center gap-2">
                 <Trash2 size={18} color={COLORS.error} />
-                <Text className="text-error text-[15px]">Clear all data</Text>
+                <Text className="text-error text-[15px]">{t('settings.clear_all_data')}</Text>
               </View>
-              <ChevronRight size={20} color={COLORS.textSecondary} />
+              <ChevronRight size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleSignOut}>
               <View className="flex-row items-center gap-2">
                 <LogOut size={18} color={COLORS.error} />
-                <Text className="text-error text-[15px]">Sign out</Text>
+                <Text className="text-error text-[15px]">{t('auth.sign_out')}</Text>
               </View>
-              <ChevronRight size={20} color={COLORS.textSecondary} />
+              <ChevronRight size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
