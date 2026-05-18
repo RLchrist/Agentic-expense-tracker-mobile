@@ -3,6 +3,7 @@ export interface GroupExpenseItem {
   payerName: string
   amount: number
   description: string
+  createdAt?: string
 }
 
 export interface Settlement {
