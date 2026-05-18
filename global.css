@@ -4,21 +4,21 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 240 10% 12%;
+    --background: 38 29% 96%;
+    --foreground: 230 15% 10%;
     --surface: 0 0% 100%;
-    --surface-light: 210 40% 96%;
-    --border: 214 32% 91%;
-    --text-secondary: 215 16% 47%;
+    --surface-light: 36 22% 93%;
+    --border: 36 21% 89%;
+    --text-secondary: 225 8% 57%;
     --card: 0 0% 100%;
   }
   .dark {
-    --background: 240 10% 8%;
+    --background: 230 15% 8%;
     --foreground: 0 0% 100%;
-    --surface: 240 10% 12%;
-    --surface-light: 240 10% 16%;
-    --border: 240 10% 20%;
-    --text-secondary: 240 5% 65%;
-    --card: 240 10% 12%;
+    --surface: 230 13% 13%;
+    --surface-light: 230 13% 18%;
+    --border: 230 13% 19%;
+    --text-secondary: 230 8% 70%;
+    --card: 230 13% 13%;
   }
 }
