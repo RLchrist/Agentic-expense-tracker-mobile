@@ -39,7 +39,6 @@ export default function SplitExpenseScreen({ navigation }: any) {
 
   // Main State
   const [expenses, setExpenses] = useState<GroupExpenseItem[]>([])
-  const [oldExpenses, setOldExpenses] = useState<GroupExpenseItem[]>([])
   const [totalFriends, setTotalFriends] = useState('')
   const [splitResult, setSplitResult] = useState<SplitResult | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -49,20 +48,19 @@ export default function SplitExpenseScreen({ navigation }: any) {
     const cached = cacheStorage.getString('uncalculated_group_expenses')
     if (cached) {
       try {
-        setOldExpenses(JSON.parse(cached))
+        setExpenses(JSON.parse(cached))
       } catch {}
     }
   }, [])
 
   // Auto-save cache
   React.useEffect(() => {
-    const all = [...expenses, ...oldExpenses]
-    if (all.length > 0) {
-      cacheStorage.set('uncalculated_group_expenses', JSON.stringify(all))
+    if (expenses.length > 0) {
+      cacheStorage.set('uncalculated_group_expenses', JSON.stringify(expenses))
     } else {
       cacheStorage.remove('uncalculated_group_expenses')
     }
-  }, [expenses, oldExpenses])
+  }, [expenses])
 
   // --- Voice & Image Logic ---
   useSpeechRecognitionEvent('result', (event) => {
@@ -198,12 +196,11 @@ export default function SplitExpenseScreen({ navigation }: any) {
 
   // --- Split Logic ---
   const handleDone = () => {
-    const allExps = [...expenses, ...oldExpenses]
-    if (allExps.length === 0) {
+    if (expenses.length === 0) {
       Alert.alert('Error', 'Please add at least one expense.')
       return
     }
-    const uniquePayers = new Set(allExps.map(e => e.payerName.trim())).size
+    const uniquePayers = new Set(expenses.map(e => e.payerName.trim())).size
     const friendsCount = parseInt(totalFriends, 10)
 
     if (isNaN(friendsCount) || friendsCount < uniquePayers) {
@@ -211,7 +208,7 @@ export default function SplitExpenseScreen({ navigation }: any) {
       return
     }
 
-    const result = calculateSplit(allExps, friendsCount)
+    const result = calculateSplit(expenses, friendsCount)
     setSplitResult(result)
   }
 
@@ -233,8 +230,7 @@ export default function SplitExpenseScreen({ navigation }: any) {
 
       let savedCount = 0
 
-      const allExps = [...expenses, ...oldExpenses]
-      for (const exp of allExps) {
+      for (const exp of expenses) {
         if (exp.payerName.trim() && exp.amount > 0 && isCurrentUser(exp.payerName)) {
           await addExpense({
             amount: exp.amount,
@@ -277,14 +273,12 @@ export default function SplitExpenseScreen({ navigation }: any) {
       if (savedCount > 0) {
         cacheStorage.remove('uncalculated_group_expenses')
         setExpenses([])
-        setOldExpenses([])
         Alert.alert('Success', `Saved ${savedCount} expense(s) to your dashboard!`, [
           { text: 'OK', onPress: () => navigation.goBack() }
         ])
       } else {
         cacheStorage.remove('uncalculated_group_expenses')
         setExpenses([])
-        setOldExpenses([])
         Alert.alert('Done', 'No expenses or settlements found for your name.', [
           { text: 'OK', onPress: () => navigation.goBack() }
         ])
@@ -492,22 +486,46 @@ export default function SplitExpenseScreen({ navigation }: any) {
                 <Swipeable
                   key={exp.id}
                   renderLeftActions={() => (
-                    <TouchableOpacity 
-                      className="bg-error justify-center items-center px-6 rounded-xl"
-                      style={{ height: '100%' }}
-                      onPress={() => removeExpense(exp.id)}
-                    >
-                      <Trash2 size={20} className="text-white" />
-                    </TouchableOpacity>
+                    <View className="flex-row" style={{ height: '100%' }}>
+                      <TouchableOpacity 
+                        className="bg-primary justify-center items-center px-5 rounded-xl mr-2"
+                        onPress={() => {
+                          setCurrentName(exp.payerName)
+                          setCurrentAmount(exp.amount.toString())
+                          setCurrentDesc(exp.description)
+                          removeExpense(exp.id)
+                        }}
+                      >
+                        <Pencil size={20} className="text-white" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        className="bg-error justify-center items-center px-5 rounded-xl"
+                        onPress={() => removeExpense(exp.id)}
+                      >
+                        <Trash2 size={20} className="text-white" />
+                      </TouchableOpacity>
+                    </View>
                   )}
                   renderRightActions={() => (
-                    <TouchableOpacity 
-                      className="bg-error justify-center items-center px-6 rounded-xl"
-                      style={{ height: '100%' }}
-                      onPress={() => removeExpense(exp.id)}
-                    >
-                      <Trash2 size={20} className="text-white" />
-                    </TouchableOpacity>
+                    <View className="flex-row" style={{ height: '100%' }}>
+                      <TouchableOpacity 
+                        className="bg-primary justify-center items-center px-5 rounded-xl mr-2"
+                        onPress={() => {
+                          setCurrentName(exp.payerName)
+                          setCurrentAmount(exp.amount.toString())
+                          setCurrentDesc(exp.description)
+                          removeExpense(exp.id)
+                        }}
+                      >
+                        <Pencil size={20} className="text-white" />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        className="bg-error justify-center items-center px-5 rounded-xl"
+                        onPress={() => removeExpense(exp.id)}
+                      >
+                        <Trash2 size={20} className="text-white" />
+                      </TouchableOpacity>
+                    </View>
                   )}
                   containerStyle={{ marginBottom: 12 }}
                 >
@@ -526,67 +544,6 @@ export default function SplitExpenseScreen({ navigation }: any) {
               ))}
             </View>
           )}
-          {/* Old Split Group Expenses List (Not Calculated) */}
-          {oldExpenses.length > 0 && (
-            <View className="mb-6">
-              <Text className="text-text font-bold text-[16px] mb-3">Saved Group Expenses (Uncalculated)</Text>
-              {oldExpenses.map((exp, index) => (
-                <Swipeable
-                  key={exp.id}
-                  renderLeftActions={() => (
-                    <TouchableOpacity 
-                      className="bg-error justify-center items-center px-6 rounded-xl"
-                      style={{ height: '100%' }}
-                      onPress={() => {
-                        setOldExpenses(prev => prev.filter(e => e.id !== exp.id))
-                      }}
-                    >
-                      <Trash2 size={20} className="text-white" />
-                    </TouchableOpacity>
-                  )}
-                  renderRightActions={() => (
-                    <TouchableOpacity 
-                      className="bg-error justify-center items-center px-6 rounded-xl"
-                      style={{ height: '100%' }}
-                      onPress={() => {
-                        setOldExpenses(prev => prev.filter(e => e.id !== exp.id))
-                      }}
-                    >
-                      <Trash2 size={20} className="text-white" />
-                    </TouchableOpacity>
-                  )}
-                  containerStyle={{ marginBottom: 12 }}
-                >
-                  <View className="bg-surface p-4 rounded-xl border border-border flex-row items-center justify-between">
-                    <View className="flex-1 mr-2">
-                      <Text className="text-text font-bold">{exp.payerName} paid Rs. {exp.amount}</Text>
-                      <Text className="text-textSecondary text-xs mt-0.5">{exp.description}</Text>
-                    </View>
-                    <View className="flex-row items-center gap-3">
-                      {index === 0 && (
-                        <TouchableOpacity 
-                          onPress={() => {
-                            setCurrentName(exp.payerName)
-                            setCurrentAmount(exp.amount.toString())
-                            setCurrentDesc(exp.description)
-                            setOldExpenses(prev => prev.filter(e => e.id !== exp.id))
-                          }}
-                          className="p-1"
-                        >
-                          <Pencil size={16} className="text-primary" />
-                        </TouchableOpacity>
-                      )}
-                      {exp.createdAt && (
-                        <Text className="text-textSecondary text-[11px] self-start mt-0.5">
-                          {new Date(exp.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                </Swipeable>
-              ))}
-            </View>
-          )}
 
         </ScrollView>
         
@@ -594,8 +551,8 @@ export default function SplitExpenseScreen({ navigation }: any) {
           <TouchableOpacity 
             className="w-full bg-primary py-4 rounded-xl items-center flex-row justify-center gap-2"
             onPress={handleDone}
-            disabled={expenses.length === 0 && oldExpenses.length === 0}
-            style={{ opacity: (expenses.length === 0 && oldExpenses.length === 0) ? 0.5 : 1 }}
+            disabled={expenses.length === 0}
+            style={{ opacity: expenses.length === 0 ? 0.5 : 1 }}
           >
             <DivideCircle size={20} className="text-white" />
             <Text className="text-white font-bold text-[16px]">Calculate Split</Text>
