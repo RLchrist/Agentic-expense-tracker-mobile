@@ -277,11 +277,34 @@ export default function SplitExpenseScreen({ navigation }: any) {
           { text: 'OK', onPress: () => navigation.goBack() }
         ])
       } else {
-        cacheStorage.remove('uncalculated_group_expenses')
-        setExpenses([])
-        Alert.alert('Done', 'No expenses or settlements found for your name.', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ])
+        const share = splitResult.perPersonShare
+        if (share > 0) {
+          await addExpense({
+            amount: share,
+            title: 'Group Trip Split Share',
+            category_id: null,
+            expense_date: dateStr,
+            payment_method: 'cash',
+            currency,
+            receipt_url: null,
+            is_synced: false,
+            is_recurring: false,
+            recurring_period: null,
+            local_id: null,
+            note: `Auto-generated. Your per-person share for this trip: ${currency} ${share.toFixed(2)}`
+          })
+          cacheStorage.remove('uncalculated_group_expenses')
+          setExpenses([])
+          Alert.alert('Success', `Saved your split share of Rs. ${share.toFixed(0)} to your dashboard!`, [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ])
+        } else {
+          cacheStorage.remove('uncalculated_group_expenses')
+          setExpenses([])
+          Alert.alert('Done', 'No expenses or settlements found for your name.', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ])
+        }
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to save settlements to DB.')

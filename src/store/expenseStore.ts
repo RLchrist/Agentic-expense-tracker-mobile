@@ -23,6 +23,31 @@ interface ExpenseState {
   getTotalByPeriod: (period: 'today' | 'week' | 'month') => number
 }
 
+const sanitizeExpensePayload = (payload: any) => {
+  const allowedKeys = [
+    'amount',
+    'currency',
+    'category_id',
+    'title',
+    'note',
+    'receipt_url',
+    'expense_date',
+    'payment_method',
+    'is_synced',
+    'local_id',
+    'user_id',
+    'ai_parsed',
+    'ai_confidence'
+  ]
+  const sanitized: any = {}
+  for (const key of allowedKeys) {
+    if (key in payload) {
+      sanitized[key] = payload[key]
+    }
+  }
+  return sanitized
+}
+
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   categories: [],
@@ -149,7 +174,7 @@ addExpense: async (expense) => {
   try {
     const { data, error } = await supabase
       .from('expenses')
-      .insert(payload)
+      .insert(sanitizeExpensePayload(payload))
       .select('*, category:categories(*)')
       .single()
 

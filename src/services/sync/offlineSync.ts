@@ -36,7 +36,22 @@ export const drainQueue = async (): Promise<{ success: number; failed: number }>
       let error = null
 
       if (op.operation === 'INSERT') {
-        const res = await supabase.from(op.table_name).insert(op.payload)
+        let payloadToInsert = op.payload
+        if (op.table_name === 'expenses') {
+          const allowedKeys = [
+            'amount', 'currency', 'category_id', 'title', 'note', 
+            'receipt_url', 'expense_date', 'payment_method', 'is_synced', 
+            'local_id', 'user_id', 'ai_parsed', 'ai_confidence'
+          ]
+          const sanitized: any = {}
+          for (const key of allowedKeys) {
+            if (key in op.payload) {
+              sanitized[key] = op.payload[key]
+            }
+          }
+          payloadToInsert = sanitized
+        }
+        const res = await supabase.from(op.table_name).insert(payloadToInsert)
         error = res.error
       } else if (op.operation === 'UPDATE') {
         const { id, ...rest } = op.payload
