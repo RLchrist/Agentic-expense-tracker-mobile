@@ -41,6 +41,27 @@ export const aiRouter = {
   },
 
   /**
+   * Parse group expenses from natural language text
+   */
+  async parseGroupExpense(input: string): Promise<AIResponse> {
+    const state = await NetInfo.fetch()
+    
+    if (state.isConnected && state.isInternetReachable) {
+      try {
+        const { data, error } = await supabase.functions.invoke('parse-expense', {
+          body: { text: input, mode: 'group' },
+        })
+        if (error) throw error
+        return { success: true, data: data.data, source: 'online' }
+      } catch (e) {
+        console.warn('Online AI failed, returning error...', e)
+        return { success: false, error: 'Online AI failed', source: 'online' }
+      }
+    }
+    return { success: false, error: 'No internet connection', source: 'offline' }
+  },
+
+  /**
    * Process receipt images
    */
   async parseReceipt(imagePath: string, categories: any[]): Promise<AIResponse> {

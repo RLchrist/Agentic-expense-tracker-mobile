@@ -1,5 +1,5 @@
 import {
-  View, Text, ScrollView,
+  View, Text, ScrollView, Image,
   TouchableOpacity, Alert, Switch
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -7,7 +7,7 @@ import {
   RefreshCw, Cloud, Bell, Globe, Smartphone, 
   Sparkles, Database, BarChart2, FileText, 
   Trash2, LogOut, ChevronRight, Coins,
-  Fingerprint, Sun, Languages, User, Lock
+  Fingerprint, Sun, Languages, Lock, Edit3
 } from 'lucide-react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { useTranslation } from 'react-i18next'
@@ -22,6 +22,7 @@ import { useColorScheme } from 'nativewind'
 import { requestNotificationPermission, scheduleDailyReminder } from '../../services/notifications/budgetAlerts'
 import { exportToCSV, exportToPDF } from '../../services/export/exportService'
 import * as ImagePicker from 'expo-image-picker'
+import { File } from 'expo-file-system'
 import { supabase } from '../../services/supabase/client'
 import { changeLang } from '../../i18n'
 
@@ -43,28 +44,30 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleAvatarUpload = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
-      base64: true,
     })
 
     if (!result.canceled && result.assets[0].uri) {
-      const { assets } = result
+      const asset = result.assets[0]
       const filePath = `${profile?.id}/avatar.jpg`
-      
-      const response = await fetch(assets[0].uri)
-      const blob = await response.blob()
-      
+      const file = new File(asset.uri)
+      const arrayBuffer = await file.arrayBuffer()
+
       const { error } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, { upsert: true })
-      
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
-        await updateProfile({ avatar_url: publicUrl })
+        .upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: true })
+
+      if (error) {
+        showToast(error.message || 'Failed to upload avatar')
+        return
       }
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      await updateProfile({ avatar_url: publicUrl })
+      showToast('Avatar updated!')
     }
   }
 
@@ -148,11 +151,20 @@ export default function SettingsScreen({ navigation }: any) {
         </View>
 
         <View className="flex-row items-center m-6 mt-0 bg-surface rounded-2xl p-6 border border-border gap-4">
-          <TouchableOpacity onPress={handleAvatarUpload} className="w-[60px] h-[60px] rounded-full bg-primary justify-center items-center">
-            <Text className="text-white text-[26px] font-bold">
-              {profile?.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
-            </Text>
-          </TouchableOpacity>
+          <View className="relative">
+            <TouchableOpacity onPress={() => navigation.navigate('UpdateProfile')} className="w-[60px] h-[60px] rounded-full bg-primary justify-center items-center overflow-hidden">
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} className="w-full h-full" />
+              ) : (
+                <Text className="text-white text-[26px] font-bold">
+                  {profile?.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <View className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1.5 border-2 border-surface shadow-sm">
+              <Edit3 size={14} color="white" />
+            </View>
+          </View>
           <View className="flex-1 gap-1">
             <Text className="text-text text-lg font-bold">{profile?.full_name ?? 'User'}</Text>
             <Text className="text-textSecondary text-[13px]">{profile?.email ?? ''}</Text>
@@ -305,16 +317,6 @@ export default function SettingsScreen({ navigation }: any) {
         <View className="px-6 mb-4">
           <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.account')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
-            <TouchableOpacity
-              className="flex-row items-center justify-between p-4 border-b border-border"
-              onPress={() => navigation.navigate('UpdateProfile')}
-            >
-              <View className="flex-row items-center gap-2">
-                <User size={18} color={colors.textSecondary} />
-                <Text className="text-text text-[15px]">Update Profile</Text>
-              </View>
-              <ChevronRight size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
             <TouchableOpacity
               className="flex-row items-center justify-between p-4 border-b border-border"
               onPress={() => navigation.navigate('ChangePassword')}

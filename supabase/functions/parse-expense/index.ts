@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { text, categories, images } = body;
+    const { text, categories, images, mode = 'single' } = body;
 
     if (!text && (!images || images.length === 0)) {
       return new Response(
@@ -39,13 +39,32 @@ Deno.serve(async (req) => {
       )
     }
 
-    const categoryList = categories
-      ?.map((c: any) => `${c.name} (id: ${c.id})`)
-      .join(', ') ?? ''
+    let prompt = ''
 
-    const today = new Date().toISOString().split('T')[0]
+    if (mode === 'group') {
+      prompt = `You are an AI group expense parser. Extract multiple expenses from the input text.
+For each person who paid, extract their name, the amount they paid, and a short description of what they paid for.
 
-    const prompt = `You are an AI expense parser. Extract the following from the input:
+Input text: "${text || 'No text provided'}"
+
+Output raw JSON strictly in this format:
+{
+  "expenses": [
+    {
+      "payerName": "Name of the person who paid",
+      "amount": numeric_amount_here,
+      "description": "Short description of what was paid for"
+    }
+  ]
+}`
+    } else {
+      const categoryList = categories
+        ?.map((c: any) => `${c.name} (id: ${c.id})`)
+        .join(', ') ?? ''
+
+      const today = new Date().toISOString().split('T')[0]
+
+      prompt = `You are an AI expense parser. Extract the following from the input:
 - title: short description
 - amount: total number
 - category: matched from the list
@@ -68,6 +87,7 @@ Output raw JSON:
   "note": null,
   "confidence": 0.9
 }`
+    }
 
     const hasImages = images && images.length > 0
     // Try the full name as per developer docs

@@ -10,6 +10,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import * as ImagePicker from 'expo-image-picker'
+import { File } from 'expo-file-system'
 import { supabase } from '../../services/supabase/client'
 import { useAuthStore } from '../../store/authStore'
 import { useAppTheme } from '../../hooks/useAppTheme'
@@ -40,7 +41,7 @@ export default function UpdateProfileScreen({ navigation }: any) {
 
   const handleAvatarUpload = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -49,22 +50,25 @@ export default function UpdateProfileScreen({ navigation }: any) {
     if (!result.canceled && result.assets[0].uri) {
       setAvatarLoading(true)
       try {
+        const asset = result.assets[0]
         const filePath = `${profile?.id}/avatar.jpg`
-        const response = await fetch(result.assets[0].uri)
-        const blob = await response.blob()
+        const file = new File(asset.uri)
+        const arrayBuffer = await file.arrayBuffer()
 
         const { error } = await supabase.storage
           .from('avatars')
-          .upload(filePath, blob, { upsert: true })
+          .upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: true })
 
-        if (!error) {
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
-          await updateProfile({ avatar_url: publicUrl })
-          showToast('Avatar updated!')
-        } else {
-          showToast('Failed to upload avatar')
+        if (error) {
+          showToast(error.message || 'Failed to upload avatar')
+          return
         }
-      } catch {
+
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        await updateProfile({ avatar_url: publicUrl })
+        showToast('Avatar updated!')
+      } catch (e) {
+        console.error('Avatar upload failed:', e)
         showToast('Failed to upload avatar')
       }
       setAvatarLoading(false)

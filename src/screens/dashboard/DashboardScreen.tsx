@@ -11,7 +11,7 @@ import {
 } from 'expo-speech-recognition'
 import { 
   LogOut, Plus, Image as ImageIcon, Camera, 
-  Mic, Square, ArrowRight, Box, Wind 
+  Mic, Square, ArrowRight, Box, Wind, Users 
 } from 'lucide-react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
@@ -268,7 +268,7 @@ export default function DashboardScreen({ navigation }: any) {
               </TouchableOpacity>
 
               <TouchableOpacity 
-                className="flex-row items-center p-4 gap-4"
+                className="flex-row items-center p-4 gap-4 border-t border-white/10"
                 onPress={() => {
                   setShowActionMenu(false)
                   openGallery()
@@ -276,6 +276,17 @@ export default function DashboardScreen({ navigation }: any) {
               >
                 <ImageIcon size={20} className="text-white" />
                 <Text className="text-white text-[15px] font-medium">Photos & Files</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="flex-row items-center p-4 gap-4 border-t border-white/10"
+                onPress={() => {
+                  setShowActionMenu(false)
+                  navigation.navigate('SplitExpense')
+                }}
+              >
+                <Users size={20} className="text-white" />
+                <Text className="text-white text-[15px] font-medium">Split Expense</Text>
               </TouchableOpacity>
             </View>
           )}
