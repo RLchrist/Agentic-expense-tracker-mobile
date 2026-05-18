@@ -15,6 +15,7 @@ import { Category } from '../../types'
 import { checkBudgetAlerts } from '../../services/notifications/budgetAlerts'
 import { addBudgetSchema, type AddBudgetFormData } from './budgetSchema'
 import OutlinedInput from '../../components/forms/OutlinedInput'
+import { Skeleton } from '../../components/common/Skeleton'
 
 export default function BudgetsScreen() {
   const { colors } = useAppTheme()
@@ -65,27 +66,57 @@ useEffect(() => {
 
         {/* Summary */}
         <View className="flex-row gap-2 px-6 mb-4">
-          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
-            <Text className="text-textSecondary text-[11px] mb-1">Total Budget</Text>
-            <Text className="text-text font-bold text-sm">Rs.{totalBudget.toLocaleString('en-NP')}</Text>
-          </View>
-          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
-            <Text className="text-textSecondary text-[11px] mb-1">Total Spent</Text>
-            <Text className="text-secondary font-bold text-sm">
-              Rs.{totalSpent.toLocaleString('en-NP')}
-            </Text>
-          </View>
-          <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
-            <Text className="text-textSecondary text-[11px] mb-1">Over Budget</Text>
-            <Text className={`font-bold text-sm ${overBudget > 0 ? 'text-error' : 'text-success'}`}>
-              {overBudget}
-            </Text>
-          </View>
+          {isLoading ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <View key={i} className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+                  <Skeleton width={60} height={12} borderRadius={4} />
+                  <Skeleton width={80} height={16} borderRadius={4} className="mt-2" />
+                </View>
+              ))}
+            </>
+          ) : (
+            <>
+              <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+                <Text className="text-textSecondary text-[11px] mb-1">Total Budget</Text>
+                <Text className="text-text font-bold text-sm">Rs.{totalBudget.toLocaleString('en-NP')}</Text>
+              </View>
+              <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+                <Text className="text-textSecondary text-[11px] mb-1">Total Spent</Text>
+                <Text className="text-secondary font-bold text-sm">
+                  Rs.{totalSpent.toLocaleString('en-NP')}
+                </Text>
+              </View>
+              <View className="flex-1 bg-surface rounded-xl p-4 items-center border border-border">
+                <Text className="text-textSecondary text-[11px] mb-1">Over Budget</Text>
+                <Text className={`font-bold text-sm ${overBudget > 0 ? 'text-error' : 'text-success'}`}>
+                  {overBudget}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Budget cards */}
         <View className="p-6 pt-0 gap-2">
-          {budgets.length === 0 ? (
+          {isLoading ? (
+            [1, 2].map((i) => (
+              <View key={i} className="bg-surface rounded-2xl p-4 border border-border">
+                <View className="flex-row items-center gap-2 mb-4">
+                  <Skeleton width={44} height={44} borderRadius={12} />
+                  <View className="gap-1.5">
+                    <Skeleton width={120} height={14} borderRadius={4} />
+                    <Skeleton width={80} height={12} borderRadius={4} />
+                  </View>
+                </View>
+                <Skeleton width="100%" height={8} borderRadius={4} />
+                <View className="flex-row justify-between mt-2">
+                  <Skeleton width={100} height={12} borderRadius={4} />
+                  <Skeleton width={80} height={12} borderRadius={4} />
+                </View>
+              </View>
+            ))
+          ) : budgets.length === 0 ? (
             <View className="items-center py-12">
               <Wallet size={52} className="text-textSecondary mb-2" />
               <Text className="text-text text-lg font-bold">No budgets yet</Text>

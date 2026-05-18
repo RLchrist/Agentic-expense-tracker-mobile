@@ -21,6 +21,7 @@ import { Expense } from '../../types'
 import { processRecurringExpenses, processBudgetResets } from '../../services/recurring/recurringService'
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
+import { Skeleton } from '../../components/common/Skeleton'
 
 export default function DashboardScreen({ navigation }: any) {
   const { colors } = useAppTheme()
@@ -203,33 +204,51 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
 
         {/* Modern Balance Header */}
-        <View 
-          className="m-6 p-8 bg-primary rounded-[32px] items-center"
-          style={{
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 20,
-            elevation: 10,
-          }}
-        >
-          <Text className="text-white/70 text-sm font-medium">Total Balance</Text>
-          <Text className="text-white text-3xl font-bold my-1">
-            Rs. {monthTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
-          </Text>
-          
-          <View className="flex-row items-center bg-white/15 rounded-2xl mt-4 px-6 py-2">
-            <View className="items-center px-4">
-              <Text className="text-white/60 text-[10px] uppercase tracking-widest">Today</Text>
-              <Text className="text-white text-sm font-bold mt-[2px]">Rs. {todayTotal.toFixed(0)}</Text>
-            </View>
-            <View className="w-[1px] h-5 bg-white/20" />
-            <View className="items-center px-4">
-              <Text className="text-white/60 text-[10px] uppercase tracking-widest">Week</Text>
-              <Text className="text-white text-sm font-bold mt-[2px]">Rs. {weekTotal.toFixed(0)}</Text>
+        {isLoading ? (
+          <View className="m-6 p-8 rounded-[32px] items-center bg-gray-200 dark:bg-slate-700">
+            <Skeleton width={100} height={14} borderRadius={4} />
+            <Skeleton width={180} height={36} borderRadius={6} className="my-3" />
+            <View className="flex-row items-center rounded-2xl mt-4 px-6 py-2 bg-gray-300 dark:bg-slate-600">
+              <View className="items-center px-4">
+                <Skeleton width={60} height={12} borderRadius={4} />
+                <Skeleton width={80} height={16} borderRadius={4} className="mt-2" />
+              </View>
+              <View className="w-[1px] h-5 bg-gray-400 dark:bg-slate-500" />
+              <View className="items-center px-4">
+                <Skeleton width={60} height={12} borderRadius={4} />
+                <Skeleton width={80} height={16} borderRadius={4} className="mt-2" />
+              </View>
             </View>
           </View>
-        </View>
+        ) : (
+          <View 
+            className="m-6 p-8 bg-primary rounded-[32px] items-center"
+            style={{
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 10,
+            }}
+          >
+            <Text className="text-white/70 text-sm font-medium">Total Balance</Text>
+            <Text className="text-white text-3xl font-bold my-1">
+              Rs. {monthTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
+            </Text>
+            
+            <View className="flex-row items-center bg-white/15 rounded-2xl mt-4 px-6 py-2">
+              <View className="items-center px-4">
+                <Text className="text-white/60 text-[10px] uppercase tracking-widest">Today</Text>
+                <Text className="text-white text-sm font-bold mt-[2px]">Rs. {todayTotal.toFixed(0)}</Text>
+              </View>
+              <View className="w-[1px] h-5 bg-white/20" />
+              <View className="items-center px-4">
+                <Text className="text-white/60 text-[10px] uppercase tracking-widest">Week</Text>
+                <Text className="text-white text-sm font-bold mt-[2px]">Rs. {weekTotal.toFixed(0)}</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <View className="px-6 mb-8 z-10">
           {showActionMenu && (
@@ -331,7 +350,20 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
 
         <View className="px-6 pb-20">
-          {recentExpenses.length > 0 ? (
+          {isLoading ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <View key={i} className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
+                  <Skeleton width={44} height={44} borderRadius={12} />
+                  <View className="flex-1 ml-3 gap-1.5">
+                    <Skeleton width="60%" height={14} borderRadius={4} />
+                    <Skeleton width="40%" height={12} borderRadius={4} />
+                  </View>
+                  <Skeleton width={70} height={16} borderRadius={4} />
+                </View>
+              ))}
+            </>
+          ) : recentExpenses.length > 0 ? (
             recentExpenses.map(item => (
               <ExpenseItem key={item.id} expense={item} onDelete={handleDeleteExpense} />
             ))
@@ -360,7 +392,7 @@ function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: s
     <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
       <View 
         className="w-11 h-11 rounded-xl justify-center items-center" 
-        style={{ backgroundColor: expense.category?.color + '22' ?? '#33333322' }}
+        style={{ backgroundColor: (expense.category?.color ?? '#333') + '22' }}
       >
         {expense.category?.icon ? (
           <Text className="text-[22px]">{expense.category.icon}</Text>

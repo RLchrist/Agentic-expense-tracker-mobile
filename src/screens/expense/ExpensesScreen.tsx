@@ -8,6 +8,7 @@ import { Plus, Search, X, Trash2, List, FileText } from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useAppTheme } from '../../hooks/useAppTheme'
 import { Expense } from '../../types'
+import { Skeleton } from '../../components/common/Skeleton'
 
 export default function ExpensesScreen({ navigation }: any) {
   const { colors } = useAppTheme()
@@ -136,7 +137,7 @@ export default function ExpensesScreen({ navigation }: any) {
       {/* Summary bar */}
       <View className="flex-row justify-between px-6 py-2 bg-surface mx-6 rounded-xl mb-2 border border-border">
         <Text className="text-textSecondary text-[13px]">
-          {filtered.length} expense{filtered.length !== 1 ? 's' : ''}
+          {isLoading ? '...' : `${filtered.length} expense${filtered.length !== 1 ? 's' : ''}`}
         </Text>
         <Text className="text-text font-bold text-[13px]">
           Rs. {totalFiltered.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
@@ -145,7 +146,7 @@ export default function ExpensesScreen({ navigation }: any) {
 
       {/* List */}
       <FlatList
-        data={filtered}
+        data={isLoading ? [] : filtered}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
@@ -154,15 +155,30 @@ export default function ExpensesScreen({ navigation }: any) {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { padding: 24, paddingTop: 8, gap: 8 }}
+        contentContainerStyle={(isLoading ? false : filtered.length === 0) ? { flex: 1 } : { padding: 24, paddingTop: 8, gap: 8 }}
         ListEmptyComponent={
-          <View className="flex-1 items-center justify-center pt-20">
-            <List size={52} className="text-textSecondary mb-2" />
-            <Text className="text-text text-lg font-bold">No expenses found</Text>
-            <Text className="text-textSecondary text-sm mt-1">
-              {search ? 'Try a different search' : 'Add your first expense'}
-            </Text>
-          </View>
+          isLoading ? (
+            <View style={{ padding: 24, paddingTop: 8, gap: 8 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <View key={i} className="flex-row items-center bg-surface rounded-2xl p-4 border border-border">
+                  <Skeleton width={46} height={46} borderRadius={12} />
+                  <View className="flex-1 ml-3 gap-1.5">
+                    <Skeleton width="60%" height={14} borderRadius={4} />
+                    <Skeleton width="45%" height={12} borderRadius={4} />
+                  </View>
+                  <Skeleton width={70} height={16} borderRadius={4} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View className="flex-1 items-center justify-center pt-20">
+              <List size={52} className="text-textSecondary mb-2" />
+              <Text className="text-text text-lg font-bold">No expenses found</Text>
+              <Text className="text-textSecondary text-sm mt-1">
+                {search ? 'Try a different search' : 'Add your first expense'}
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <ExpenseRow expense={item} onDelete={handleDelete} />
