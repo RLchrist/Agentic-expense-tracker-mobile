@@ -13,7 +13,7 @@ import {
 import { 
   LogOut, Plus, Image as ImageIcon, Camera, 
   Mic, Square, ArrowRight, Box, Wind, Users,
-  Pencil, Trash2
+  Pencil, Trash2, Bell, MoreVertical
 } from 'lucide-react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
@@ -36,6 +36,17 @@ export default function DashboardScreen({ navigation }: any) {
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
   const { profile, signOut } = useAuthStore()
+  
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [showDropdown, setShowDropdown] = useState(false)
+
+  useEffect(() => {
+    const clockTimer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(clockTimer)
+  }, [])
+
   const {
     expenses, isLoading,
     fetchExpenses, fetchCategories,
@@ -182,6 +193,17 @@ export default function DashboardScreen({ navigation }: any) {
 
   const recentExpenses = expenses.slice(0, 5)
 
+  const formattedLiveDateTime = currentTime.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  }) + ' • ' + currentTime.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  })
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
@@ -195,15 +217,53 @@ export default function DashboardScreen({ navigation }: any) {
         }
       >
         {/* Header */}
-        <View className="flex-row justify-between items-center px-6 pt-4 pb-2">
+        <View className="flex-row justify-between items-start px-6 pt-4 pb-2 z-50">
           <View>
             <Text className="text-[13px] text-textSecondary font-medium">Good day 👋</Text>
             <Text className="text-xl font-bold text-text mt-[2px]">{profile?.full_name ?? 'User'}</Text>
+            <Text className="text-[11px] text-textSecondary mt-1.5 font-medium bg-surface px-2.5 py-1 rounded-full border border-border self-start">
+              🕒 {formattedLiveDateTime}
+            </Text>
           </View>
-          <TouchableOpacity onPress={signOut} className="flex-row items-center py-1.5 px-3 bg-surface rounded-full border border-border">
-            <LogOut size={14} className="text-textSecondary mr-1.5" />
-            <Text className="text-textSecondary text-[12px] font-semibold">Sign Out</Text>
-          </TouchableOpacity>
+          <View className="flex-row items-center gap-2 relative">
+            <TouchableOpacity 
+              className="w-9 h-9 rounded-full bg-surface border border-border justify-center items-center"
+              onPress={() => Alert.alert('Notifications', 'You have no new notifications.')}
+            >
+              <Bell size={18} className="text-text" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              className="w-9 h-9 rounded-full bg-surface border border-border justify-center items-center"
+              onPress={() => setShowDropdown(!showDropdown)}
+            >
+              <MoreVertical size={18} className="text-text" />
+            </TouchableOpacity>
+
+            {showDropdown && (
+              <View 
+                className="absolute right-0 top-11 bg-surface border border-border rounded-xl p-1.5 w-[110px] shadow-lg z-50"
+                style={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 5,
+                }}
+              >
+                <TouchableOpacity 
+                  className="flex-row items-center p-2 rounded-lg bg-error/10"
+                  onPress={() => {
+                    setShowDropdown(false)
+                    signOut()
+                  }}
+                >
+                  <LogOut size={14} className="text-error mr-2" />
+                  <Text className="text-error text-[12px] font-bold">Sign Out</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Modern Balance Header */}
