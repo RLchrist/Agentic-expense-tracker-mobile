@@ -112,6 +112,7 @@ export default function LoginScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.email?.message}
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -129,6 +130,7 @@ export default function LoginScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.password?.message}
+                placeholder="••••••••"
                 secureTextEntry
               />
             )}

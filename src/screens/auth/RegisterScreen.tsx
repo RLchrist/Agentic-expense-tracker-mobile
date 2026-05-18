@@ -85,6 +85,7 @@ export default function RegisterScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.fullName?.message}
+                placeholder="John Doe"
                 autoCapitalize="words"
               />
             )}
@@ -100,6 +101,7 @@ export default function RegisterScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.email?.message}
+                placeholder="johndoe@gmail.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -117,6 +119,7 @@ export default function RegisterScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.password?.message}
+                placeholder="••••••••"
                 secureTextEntry
               />
             )}
@@ -132,6 +135,7 @@ export default function RegisterScreen({ navigation }: any) {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.confirmPassword?.message}
+                placeholder="••••••••"
                 secureTextEntry
               />
             )}
