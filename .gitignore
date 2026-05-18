@@ -43,3 +43,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+
+#test files
+nexttask.md
+appcrashfix.md
