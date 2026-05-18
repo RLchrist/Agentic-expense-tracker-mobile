@@ -3,6 +3,7 @@ import { View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import NetInfo from '@react-native-community/netinfo'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useColorScheme } from 'nativewind'
 import { Appearance } from 'react-native'
 import { supabase } from './src/services/supabase/client'
@@ -60,11 +61,13 @@ export default function App() {
 
   return (
     <View className={`flex-1 ${isDark ? 'dark' : ''}`}>
-      <SafeAreaProvider>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <RootNavigator />
-        <Toast />
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <RootNavigator />
+          <Toast />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </View>
   )
 }

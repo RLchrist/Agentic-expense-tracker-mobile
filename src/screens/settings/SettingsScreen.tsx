@@ -7,7 +7,7 @@ import {
   RefreshCw, Cloud, Bell, Globe, Smartphone, 
   Sparkles, Database, BarChart2, FileText, 
   Trash2, LogOut, ChevronRight, Coins,
-  Fingerprint, Sun, Languages
+  Fingerprint, Sun, Languages, User, Lock
 } from 'lucide-react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { useTranslation } from 'react-i18next'
@@ -25,7 +25,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../services/supabase/client'
 import { changeLang } from '../../i18n'
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: any) {
   const { t, i18n } = useTranslation()
   const { showToast } = useUiStore()
   const { profile, signOut, updateProfile } = useAuthStore()
@@ -43,7 +43,7 @@ export default function SettingsScreen() {
 
   const handleAvatarUpload = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -305,6 +305,26 @@ export default function SettingsScreen() {
         <View className="px-6 mb-4">
           <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.account')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <TouchableOpacity
+              className="flex-row items-center justify-between p-4 border-b border-border"
+              onPress={() => navigation.navigate('UpdateProfile')}
+            >
+              <View className="flex-row items-center gap-2">
+                <User size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">Update Profile</Text>
+              </View>
+              <ChevronRight size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="flex-row items-center justify-between p-4 border-b border-border"
+              onPress={() => navigation.navigate('ChangePassword')}
+            >
+              <View className="flex-row items-center gap-2">
+                <Lock size={18} color={colors.textSecondary} />
+                <Text className="text-text text-[15px]">Change Password</Text>
+              </View>
+              <ChevronRight size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
             <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleClearData}>
               <View className="flex-row items-center gap-2">
                 <Trash2 size={18} className="text-error" />

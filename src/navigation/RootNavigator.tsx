@@ -2,17 +2,21 @@ import { useColorScheme } from 'nativewind'
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useAuthStore } from '../store/authStore'
+import { useSettingsStore } from '../store/settingsStore'
 import LoginScreen from '../screens/auth/LoginScreen'
 import RegisterScreen from '../screens/auth/RegisterScreen'
+import OnboardingScreen from '../screens/onboarding/OnboardingScreen'
 import MainNavigator from './MainNavigator'
 import { View, ActivityIndicator } from 'react-native'
 import { useAppTheme } from '../hooks/useAppTheme'
+import { GestureNavigationWrapper } from '../components/common/GestureNavigationWrapper'
 
 const Stack = createNativeStackNavigator()
 
 export default function RootNavigator() {
   const { colors } = useAppTheme()
   const { isAuthenticated, isLoading } = useAuthStore()
+  const { isOnboardingComplete } = useSettingsStore()
   const { colorScheme } = useColorScheme()
   const isDark = colorScheme === 'dark'
 
@@ -38,16 +42,22 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <Stack.Screen name="Main" component={MainNavigator} />
-        ) : (
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        )}
-      </Stack.Navigator>
+      <GestureNavigationWrapper>
+        <Stack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
+          {isAuthenticated ? (
+            isOnboardingComplete ? (
+              <Stack.Screen name="Main" component={MainNavigator} />
+            ) : (
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            )
+          ) : (
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+            </>
+          )}
+        </Stack.Navigator>
+      </GestureNavigationWrapper>
     </NavigationContainer>
   )
 }

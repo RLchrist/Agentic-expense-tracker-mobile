@@ -11,6 +11,8 @@ import ExpensesScreen from '../screens/expense/ExpensesScreen'
 import AddExpenseScreen from '../screens/expense/AddExpenseScreen'
 import ReceiptScannerScreen from '../screens/expense/ReceiptScannerScreen'
 import SettingsScreen from '../screens/settings/SettingsScreen'
+import UpdateProfileScreen from '../screens/settings/UpdateProfileScreen'
+import ChangePasswordScreen from '../screens/settings/ChangePasswordScreen'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
@@ -86,6 +88,8 @@ export default function MainNavigator() {
       <Stack.Screen name="HomeTabs" component={HomeTabs} />
       <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
       <Stack.Screen name="ReceiptScanner" component={ReceiptScannerScreen} />
+      <Stack.Screen name="UpdateProfile" component={UpdateProfileScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   )
 }

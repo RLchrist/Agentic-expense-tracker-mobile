@@ -22,6 +22,7 @@ import { processRecurringExpenses, processBudgetResets } from '../../services/re
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { Skeleton } from '../../components/common/Skeleton'
+import { formatCurrency } from '../../utils'
 
 export default function DashboardScreen({ navigation }: any) {
   const { colors } = useAppTheme()
@@ -233,18 +234,18 @@ export default function DashboardScreen({ navigation }: any) {
           >
             <Text className="text-white/70 text-sm font-medium">Total Balance</Text>
             <Text className="text-white text-3xl font-bold my-1">
-              Rs. {monthTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
+              {formatCurrency(monthTotal, profile?.currency ?? 'NPR', 2)}
             </Text>
             
             <View className="flex-row items-center bg-white/15 rounded-2xl mt-4 px-6 py-2">
               <View className="items-center px-4">
                 <Text className="text-white/60 text-[10px] uppercase tracking-widest">Today</Text>
-                <Text className="text-white text-sm font-bold mt-[2px]">Rs. {todayTotal.toFixed(0)}</Text>
+                <Text className="text-white text-sm font-bold mt-[2px]">{formatCurrency(todayTotal, profile?.currency ?? 'NPR')}</Text>
               </View>
               <View className="w-[1px] h-5 bg-white/20" />
               <View className="items-center px-4">
                 <Text className="text-white/60 text-[10px] uppercase tracking-widest">Week</Text>
-                <Text className="text-white text-sm font-bold mt-[2px]">Rs. {weekTotal.toFixed(0)}</Text>
+                <Text className="text-white text-sm font-bold mt-[2px]">{formatCurrency(weekTotal, profile?.currency ?? 'NPR')}</Text>
               </View>
             </View>
           </View>
@@ -388,6 +389,7 @@ export default function DashboardScreen({ navigation }: any) {
 
 function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: string) => void }) {
   const { colors } = useAppTheme()
+  const { profile } = useAuthStore()
   return (
     <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
       <View 
@@ -405,7 +407,7 @@ function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: s
         <Text className="text-textSecondary text-[12px] mt-0.5">{expense.category?.name ?? 'Uncategorized'}</Text>
       </View>
       <View className="items-end">
-        <Text className="text-text font-bold text-[15px]">Rs. {Number(expense.amount).toFixed(0)}</Text>
+        <Text className="text-text font-bold text-[15px]">{formatCurrency(Number(expense.amount), profile?.currency ?? 'NPR')}</Text>
       </View>
     </View>
   )
