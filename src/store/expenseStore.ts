@@ -19,6 +19,7 @@ interface ExpenseState {
   addCategory: (category: { name: string; icon: string; color: string }) => Promise<Category | null>
   addPaymentMethod: (method: { label: string; icon: string }) => void
   addExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Promise<void>
+  updateExpense: (id: string, updates: Partial<Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'user_id'>>) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
   getTotalByPeriod: (period: 'today' | 'week' | 'month') => number
 }
@@ -206,6 +207,57 @@ addExpense: async (expense) => {
       category,
     }
     set((state) => ({ expenses: [tempExpense, ...state.expenses] }))
+  }
+},
+
+updateExpense: async (id, updates) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return
+
+  const payload = { ...updates, id }
+  const category = updates.category_id ? (get().categories.find((c) => c.id === updates.category_id) ?? null) : null
+
+  const net = await NetInfo.fetch()
+
+  if (!net.isConnected) {
+    enqueue({ operation: 'UPDATE', table: 'expenses', payload })
+    set((state) => ({
+      expenses: state.expenses.map((e) =>
+        e.id === id ? { ...e, ...updates, category: category || e.category, updated_at: new Date().toISOString() } : e
+      )
+    }))
+    return
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .update(sanitizeExpensePayload(updates))
+      .eq('id', id)
+      .select('*, category:categories(*)')
+      .single()
+
+    if (!error && data) {
+      set((state) => ({
+        expenses: state.expenses.map((e) => (e.id === id ? data : e))
+      }))
+    } else if (error) {
+      console.warn('Update failed, queuing offline:', error.message)
+      enqueue({ operation: 'UPDATE', table: 'expenses', payload })
+      set((state) => ({
+        expenses: state.expenses.map((e) =>
+          e.id === id ? { ...e, ...updates, category: category || e.category, updated_at: new Date().toISOString() } : e
+        )
+      }))
+    }
+  } catch (e) {
+    console.warn('Network error, queuing offline:', e)
+    enqueue({ operation: 'UPDATE', table: 'expenses', payload })
+    set((state) => ({
+      expenses: state.expenses.map((e) =>
+        e.id === id ? { ...e, ...updates, category: category || e.category, updated_at: new Date().toISOString() } : e
+      )
+    }))
   }
 },
 

@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import {
-  View, Text, ScrollView,
+  View, Text,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Platform
 } from 'react-native'
+import { ScrollView, Swipeable } from 'react-native-gesture-handler'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import {
@@ -11,7 +12,8 @@ import {
 } from 'expo-speech-recognition'
 import { 
   LogOut, Plus, Image as ImageIcon, Camera, 
-  Mic, Square, ArrowRight, Box, Wind, Users 
+  Mic, Square, ArrowRight, Box, Wind, Users,
+  Pencil, Trash2
 } from 'lucide-react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
@@ -378,7 +380,12 @@ export default function DashboardScreen({ navigation }: any) {
             </>
           ) : recentExpenses.length > 0 ? (
             recentExpenses.map(item => (
-              <ExpenseItem key={item.id} expense={item} onDelete={handleDeleteExpense} />
+              <ExpenseItem 
+                key={item.id} 
+                expense={item} 
+                onDelete={handleDeleteExpense} 
+                onEdit={(exp) => navigation.navigate('AddExpense', { expense: exp })}
+              />
             ))
           ) : (
             <View className="items-center py-12">
@@ -399,28 +406,100 @@ export default function DashboardScreen({ navigation }: any) {
   )
 }
 
-function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: string) => void }) {
+function ExpenseItem({ expense, onDelete, onEdit }: { expense: Expense; onDelete: (id: string) => void; onEdit: (expense: Expense) => void }) {
   const { colors } = useAppTheme()
   const { profile } = useAuthStore()
-  return (
-    <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
-      <View 
-        className="w-11 h-11 rounded-xl justify-center items-center" 
-        style={{ backgroundColor: (expense.category?.color ?? '#333') + '22' }}
+  const swipeableRef = useRef<any>(null)
+  
+  const formattedDate = expense.created_at 
+    ? `${new Date(expense.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${new Date(expense.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })}`
+    : ''
+
+  const renderSwipeActions = () => (
+    <View className="flex-row items-center pl-2 mb-2" style={{ height: '100%' }}>
+      <TouchableOpacity 
+        className="bg-primary justify-center items-center px-4 rounded-xl mr-2 h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          onEdit(expense)
+        }}
       >
-        {expense.category?.icon ? (
-          <Text className="text-[22px]">{expense.category.icon}</Text>
-        ) : (
-          <Box size={24} color={expense.category?.color ?? colors.primary} />
-        )}
-      </View>
-      <View className="flex-1 ml-3">
-        <Text className="text-text font-semibold text-[15px]">{expense.title}</Text>
-        <Text className="text-textSecondary text-[12px] mt-0.5">{expense.category?.name ?? 'Uncategorized'}</Text>
-      </View>
-      <View className="items-end">
-        <Text className="text-text font-bold text-[15px]">{formatCurrency(Number(expense.amount), profile?.currency ?? 'NPR')}</Text>
-      </View>
+        <Pencil size={20} className="text-white" />
+      </TouchableOpacity>
+      <TouchableOpacity 
+        className="bg-error justify-center items-center px-4 rounded-xl h-[52px] mr-2"
+        onPress={() => {
+          swipeableRef.current?.close()
+          Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => onDelete(expense.id) }
+          ])
+        }}
+      >
+        <Trash2 size={20} className="text-white" />
+      </TouchableOpacity>
     </View>
+  )
+
+  const renderRightSwipeActions = () => (
+    <View className="flex-row items-center pr-2 mb-2" style={{ height: '100%' }}>
+      <TouchableOpacity 
+        className="bg-primary justify-center items-center px-4 rounded-xl mr-2 h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          onEdit(expense)
+        }}
+      >
+        <Pencil size={20} className="text-white" />
+      </TouchableOpacity>
+      <TouchableOpacity 
+        className="bg-error justify-center items-center px-4 rounded-xl h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => onDelete(expense.id) }
+          ])
+        }}
+      >
+        <Trash2 size={20} className="text-white" />
+      </TouchableOpacity>
+    </View>
+  )
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderSwipeActions}
+      renderRightActions={renderRightSwipeActions}
+    >
+      <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
+        <View 
+          className="w-11 h-11 rounded-xl justify-center items-center" 
+          style={{ backgroundColor: (expense.category?.color ?? '#333') + '22' }}
+        >
+          {expense.category?.icon ? (
+            <Text className="text-[22px]">{expense.category.icon}</Text>
+          ) : (
+            <Box size={24} color={expense.category?.color ?? colors.primary} />
+          )}
+        </View>
+        <View className="flex-1 ml-3">
+          <Text className="text-text font-semibold text-[15px]">{expense.title}</Text>
+          <View className="flex-row items-center gap-1.5 mt-0.5">
+            <Text className="text-textSecondary text-[12px]">{expense.category?.name ?? 'Uncategorized'}</Text>
+            {formattedDate && (
+              <>
+                <Text className="text-textSecondary text-[12px]">•</Text>
+                <Text className="text-textSecondary text-[11px]">{formattedDate}</Text>
+              </>
+            )}
+          </View>
+        </View>
+        <View className="items-end">
+          <Text className="text-text font-bold text-[15px]">{formatCurrency(Number(expense.amount), profile?.currency ?? 'NPR')}</Text>
+        </View>
+      </View>
+    </Swipeable>
   )
 }

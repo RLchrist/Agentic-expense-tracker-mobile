@@ -12,24 +12,28 @@ import { Category } from '../../types'
 import { addExpenseSchema, type AddExpenseFormData } from './expenseSchema'
 import OutlinedInput from '../../components/forms/OutlinedInput'
 
-export default function AddExpenseScreen({ navigation }: any) {
+export default function AddExpenseScreen({ navigation, route }: any) {
   const { colors } = useAppTheme()
   const { showToast } = useUiStore()
-  const { categories, paymentMethods, addExpense, addCategory, addPaymentMethod } = useExpenseStore()
+  const { categories, paymentMethods, addExpense, updateExpense, addCategory, addPaymentMethod } = useExpenseStore()
   const { profile } = useAuthStore()
   const [loading, setLoading] = useState(false)
-  const [isRecurring, setIsRecurring] = useState(false)
-  const [recurringPeriod, setRecurringPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly')
+
+  const editingExpense = route?.params?.expense as any
+  const [isRecurring, setIsRecurring] = useState(editingExpense?.is_recurring || false)
+  const [recurringPeriod, setRecurringPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>(
+    editingExpense?.recurring_period || 'monthly'
+  )
 
   const { control, handleSubmit, setValue, watch, formState: { errors } } = useForm<AddExpenseFormData>({
     resolver: zodResolver(addExpenseSchema),
     defaultValues: {
-      title: '',
-      amount: '',
-      expenseDate: new Date().toISOString().split('T')[0],
-      note: '',
-      categoryId: '',
-      paymentMethod: 'cash',
+      title: editingExpense?.title || '',
+      amount: editingExpense?.amount ? String(editingExpense.amount) : '',
+      expenseDate: editingExpense?.expense_date || new Date().toISOString().split('T')[0],
+      note: editingExpense?.note || '',
+      categoryId: editingExpense?.category_id || '',
+      paymentMethod: editingExpense?.payment_method || 'cash',
     },
   })
 
@@ -38,22 +42,40 @@ export default function AddExpenseScreen({ navigation }: any) {
 
   const handleSave = handleSubmit(async (data) => {
     setLoading(true)
-    await addExpense({
-      title: data.title.trim(),
-      amount: parseFloat(data.amount),
-      currency: profile?.currency ?? 'NPR',
-      category_id: data.categoryId,
-      note: data.note?.trim() || null,
-      receipt_url: null,
-      expense_date: data.expenseDate,
-      payment_method: data.paymentMethod,
-      is_synced: true,
-      is_recurring: isRecurring,
-      recurring_period: isRecurring ? recurringPeriod : null,
-      local_id: null,
-    })
+    if (editingExpense) {
+      await updateExpense(editingExpense.id, {
+        title: data.title.trim(),
+        amount: parseFloat(data.amount),
+        currency: profile?.currency ?? 'NPR',
+        category_id: data.categoryId || null,
+        note: data.note?.trim() || null,
+        receipt_url: editingExpense.receipt_url,
+        expense_date: data.expenseDate,
+        payment_method: data.paymentMethod,
+        is_synced: true,
+        is_recurring: isRecurring,
+        recurring_period: isRecurring ? recurringPeriod : null,
+        local_id: editingExpense.local_id,
+      })
+      showToast('Expense updated!')
+    } else {
+      await addExpense({
+        title: data.title.trim(),
+        amount: parseFloat(data.amount),
+        currency: profile?.currency ?? 'NPR',
+        category_id: data.categoryId || null,
+        note: data.note?.trim() || null,
+        receipt_url: null,
+        expense_date: data.expenseDate,
+        payment_method: data.paymentMethod,
+        is_synced: true,
+        is_recurring: isRecurring,
+        recurring_period: isRecurring ? recurringPeriod : null,
+        local_id: null,
+      })
+      showToast('Expense added!')
+    }
     setLoading(false)
-    showToast('Expense added!')
     navigation.goBack()
   })
 
@@ -111,7 +133,7 @@ export default function AddExpenseScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} className="w-[60px]">
             <ArrowLeft size={24} className="text-primary" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-text">Add Expense</Text>
+          <Text className="text-lg font-bold text-text">{editingExpense ? 'Edit Expense' : 'Add Expense'}</Text>
           <View className="w-[60px]" />
         </View>
 
@@ -299,7 +321,7 @@ export default function AddExpenseScreen({ navigation }: any) {
           >
             {loading
               ? <ActivityIndicator className="text-white" />
-              : <Text className="text-white text-base font-bold">Save Expense</Text>
+              : <Text className="text-white text-base font-bold">{editingExpense ? 'Save Changes' : 'Save Expense'}</Text>
             }
           </TouchableOpacity>
         </View>
