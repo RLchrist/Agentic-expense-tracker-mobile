@@ -9,9 +9,10 @@ import {
   Banknote, Smartphone, Landmark, Package 
 } from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS } from '../../constants'
+import { useAppTheme } from '../../hooks/useAppTheme'
 
 export default function AnalyticsScreen() {
+  const { colors } = useAppTheme()
   const { expenses, categories } = useExpenseStore()
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month')
 
@@ -72,11 +73,11 @@ export default function AnalyticsScreen() {
   ]
 
   const paymentIcons: Record<string, any> = {
-    cash: <Banknote size={24} color={COLORS.success} />,
-    card: <CreditCard size={24} color={COLORS.primary} />,
-    upi: <Smartphone size={24} color={COLORS.secondary} />,
-    bank_transfer: <Landmark size={24} color={COLORS.warning} />,
-    other: <Package size={24} color={COLORS.textSecondary} />
+    cash: <Banknote size={24} className="text-success" />,
+    card: <CreditCard size={24} className="text-primary" />,
+    upi: <Smartphone size={24} className="text-secondary" />,
+    bank_transfer: <Landmark size={24} className="text-warning" />,
+    other: <Package size={24} className="text-textSecondary" />
   }
 
   return (
@@ -114,7 +115,7 @@ export default function AnalyticsScreen() {
         {/* Daily bar chart */}
         <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
           <View className="flex-row items-center mb-4 gap-2">
-            <Calendar size={18} color={COLORS.text} />
+            <Calendar size={18} className="text-text" />
             <Text className="text-text font-bold text-base">Daily Spending (Last 7 Days)</Text>
           </View>
           <View className="flex-row items-end h-[140px] gap-1.5">
@@ -128,7 +129,7 @@ export default function AnalyticsScreen() {
                     className="w-full rounded-lg min-h-[2px]"
                     style={{
                       height: `${(d.total / maxDaily) * 100}%`,
-                      backgroundColor: d.total > 0 ? COLORS.primary : COLORS.border,
+                      backgroundColor: d.total > 0 ? colors.primary : colors.border,
                     }}
                   />
                 </View>
@@ -141,7 +142,7 @@ export default function AnalyticsScreen() {
         {/* Category breakdown */}
         <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
           <View className="flex-row items-center mb-4 gap-2">
-            <Tag size={18} color={COLORS.text} />
+            <Tag size={18} className="text-text" />
             <Text className="text-text font-bold text-base">By Category</Text>
           </View>
           {categoryTotals.length === 0 ? (
@@ -183,7 +184,7 @@ export default function AnalyticsScreen() {
         {/* Payment method */}
         <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
           <View className="flex-row items-center mb-4 gap-2">
-            <CreditCard size={18} color={COLORS.text} />
+            <CreditCard size={18} className="text-text" />
             <Text className="text-text font-bold text-base">By Payment Method</Text>
           </View>
           {paymentTotals.length === 0 ? (
@@ -210,7 +211,7 @@ export default function AnalyticsScreen() {
         {/* Top expenses */}
         <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
           <View className="flex-row items-center mb-4 gap-2">
-            <TrendingUp size={18} color={COLORS.text} />
+            <TrendingUp size={18} className="text-text" />
             <Text className="text-text font-bold text-base">Top Expenses</Text>
           </View>
           {filtered

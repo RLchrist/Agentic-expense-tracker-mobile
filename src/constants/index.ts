@@ -59,13 +59,6 @@ export const PAYMENT_METHODS = [
   { label: 'Other', value: 'other', icon: '📦' },
 ]
 
-export const CURRENCIES = [
-  { label: 'NPR - Nepali Rupee', value: 'NPR', symbol: 'Rs.' },
-  { label: 'USD - US Dollar', value: 'USD', symbol: '$' },
-  { label: 'INR - Indian Rupee', value: 'INR', symbol: '₹' },
-  { label: 'EUR - Euro', value: 'EUR', symbol: '€' },
-]
-
 export const STORAGE_KEYS = {
   session: 'supabase-session',
   offlineQueue: 'offline-queue',

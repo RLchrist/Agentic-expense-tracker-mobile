@@ -13,7 +13,8 @@ import {
   Wallet, Tag, Calendar, CreditCard, 
   ChevronRight, Check, Plus, Trash2 
 } from 'lucide-react-native'
-import { COLORS, PAYMENT_METHODS } from '../../constants'
+import { PAYMENT_METHODS } from '../../constants'
+import { useAppTheme } from '../../hooks/useAppTheme'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { useExpenseStore } from '../../store/expenseStore'
 
@@ -31,6 +32,7 @@ interface Props {
 type Stage = 'idle' | 'recording' | 'transcribing' | 'parsing' | 'preview' | 'saving'
 
 export default function VoiceExpenseModal({ visible, onClose, onSaved, initialParsed }: Props) {
+  const { colors } = useAppTheme()
   const { categories, addExpense } = useExpenseStore()
   const [stage, setStage] = useState<Stage>('idle')
   
@@ -227,7 +229,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     const newCat = await addCategory({
       name: newCatName,
       icon: newCatIcon,
-      color: COLORS.primary,
+      color: colors.primary,
     })
     if (newCat && parsed) {
       setParsed({ ...parsed, category_id: newCat.id, category_name: newCat.name })
@@ -266,13 +268,13 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
           </View>
           <View className="flex-row justify-between items-center mb-6">
             <View className="flex-row items-center gap-2">
-              <Sparkles size={20} color={COLORS.primary} />
+              <Sparkles size={20} className="text-primary" />
               <Text className="text-lg font-bold text-text">
                 {stage === 'preview' ? 'AI Parsed Expense' : 'AI Expense Input'}
               </Text>
             </View>
             <TouchableOpacity onPress={handleClose}>
-              <X size={24} color={COLORS.textSecondary} />
+              <X size={24} className="text-textSecondary" />
             </TouchableOpacity>
           </View>
 
@@ -286,9 +288,9 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                     disabled={stage === 'transcribing' || stage === 'parsing'}
                   >
                     {stage === 'recording' ? (
-                      <Square size={30} color={COLORS.white} />
+                      <Square size={30} className="text-white" />
                     ) : (
-                      <Mic size={30} color={COLORS.white} />
+                      <Mic size={30} className="text-white" />
                     )}
                   </TouchableOpacity>
                 </Animated.View>
@@ -304,7 +306,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   {stage === 'recording' && 'Listening...'}
                   {stage === 'parsing' && 'AI is parsing...'}
                 </Text>
-                {stage === 'parsing' && <ActivityIndicator color={COLORS.primary} className="mt-5" />}
+                {stage === 'parsing' && <ActivityIndicator className="text-primary mt-5" />}
               </View>
             )}
 
@@ -313,7 +315,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                 <View className="bg-background rounded-xl p-4 border border-border">
                   <View className="flex-row items-center py-2.5 border-b border-border">
                     <View className="w-24 flex-row items-center gap-1.5">
-                      <FileText size={14} color={COLORS.textSecondary} />
+                      <FileText size={14} className="text-textSecondary" />
                       <Text className="text-textSecondary text-[13px]">Title</Text>
                     </View>
                     <TextInput
@@ -324,7 +326,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   </View>
                   <View className="flex-row items-center py-2.5 border-b border-border">
                     <View className="w-24 flex-row items-center gap-1.5">
-                      <Wallet size={14} color={COLORS.textSecondary} />
+                      <Wallet size={14} className="text-textSecondary" />
                       <Text className="text-textSecondary text-[13px]">Amount</Text>
                     </View>
                     <TextInput
@@ -336,15 +338,15 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   </View>
                   <TouchableOpacity className="flex-row items-center py-2.5 border-b border-border" onPress={() => setIsEditingCategory(true)}>
                     <View className="w-24 flex-row items-center gap-1.5">
-                      <Tag size={14} color={COLORS.textSecondary} />
+                      <Tag size={14} className="text-textSecondary" />
                       <Text className="text-textSecondary text-[13px]">Category</Text>
                     </View>
                     <Text className="flex-1 text-text text-[15px]">{parsed.category_name || 'Select'}</Text>
-                    <ChevronRight size={18} color={COLORS.textSecondary} />
+                    <ChevronRight size={18} className="text-textSecondary" />
                   </TouchableOpacity>
                   <View className="flex-row items-center py-2.5 border-b border-border">
                     <View className="w-24 flex-row items-center gap-1.5">
-                      <Calendar size={14} color={COLORS.textSecondary} />
+                      <Calendar size={14} className="text-textSecondary" />
                       <Text className="text-textSecondary text-[13px]">Date</Text>
                     </View>
                     <TextInput
@@ -355,11 +357,11 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   </View>
                   <TouchableOpacity className="flex-row items-center py-2.5 border-b border-border" onPress={() => setIsEditingPayment(true)}>
                     <View className="w-24 flex-row items-center gap-1.5">
-                      <CreditCard size={14} color={COLORS.textSecondary} />
+                      <CreditCard size={14} className="text-textSecondary" />
                       <Text className="text-textSecondary text-[13px]">Payment</Text>
                     </View>
                     <Text className="flex-1 text-text text-[15px]">{parsed.payment_method}</Text>
-                    <ChevronRight size={18} color={COLORS.textSecondary} />
+                    <ChevronRight size={18} className="text-textSecondary" />
                   </TouchableOpacity>
                 </View>
 
@@ -382,7 +384,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                           </View>
                         ) : (
                           <TouchableOpacity className="p-3 rounded-lg border border-dashed border-primary mt-2.5 items-center flex-row justify-center gap-2" onPress={() => setIsAddingCategory(true)}>
-                            <Plus size={16} color={COLORS.primary} />
+                            <Plus size={16} className="text-primary" />
                             <Text className="text-primary font-semibold">New Category</Text>
                           </TouchableOpacity>
                         )}
@@ -410,7 +412,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                           </View>
                         ) : (
                           <TouchableOpacity className="p-3 rounded-lg border border-dashed border-primary mt-2.5 items-center flex-row justify-center gap-2" onPress={() => setIsAddingPayment(true)}>
-                            <Plus size={16} color={COLORS.primary} />
+                            <Plus size={16} className="text-primary" />
                             <Text className="text-primary font-semibold">Custom Payment</Text>
                           </TouchableOpacity>
                         )}
@@ -422,11 +424,11 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
                 <View className="flex-row gap-2.5 mt-2.5">
                   <TouchableOpacity className="flex-1 p-4 rounded-xl bg-surface border border-border items-center flex-row justify-center gap-2" onPress={() => setStage('idle')}>
-                    <Trash2 size={18} color={COLORS.textSecondary} />
+                    <Trash2 size={18} className="text-textSecondary" />
                     <Text className="text-textSecondary font-semibold">Retry</Text>
                   </TouchableOpacity>
                   <TouchableOpacity className="flex-[2] p-4 rounded-xl bg-primary items-center flex-row justify-center gap-2" onPress={handleSave}>
-                    <Check size={18} color={COLORS.white} />
+                    <Check size={18} className="text-white" />
                     <Text className="text-white font-bold">Save</Text>
                   </TouchableOpacity>
                 </View>

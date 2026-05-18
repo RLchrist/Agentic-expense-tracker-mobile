@@ -6,11 +6,12 @@ import LoginScreen from '../screens/auth/LoginScreen'
 import RegisterScreen from '../screens/auth/RegisterScreen'
 import MainNavigator from './MainNavigator'
 import { View, ActivityIndicator } from 'react-native'
-import { COLORS } from '../constants'
+import { useAppTheme } from '../hooks/useAppTheme'
 
 const Stack = createNativeStackNavigator()
 
 export default function RootNavigator() {
+  const { colors } = useAppTheme()
   const { isAuthenticated, isLoading } = useAuthStore()
   const { colorScheme } = useColorScheme()
   const isDark = colorScheme === 'dark'
@@ -23,14 +24,14 @@ export default function RootNavigator() {
       card: isDark ? '#1A1A2E' : '#FFFFFF',
       text: isDark ? '#FFFFFF' : '#1C1C28',
       border: isDark ? '#2A2A4A' : '#E5E7EB',
-      primary: COLORS.primary,
+      primary: colors.primary,
     },
   }
 
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
-        <ActivityIndicator color={COLORS.primary} size="large" />
+        <ActivityIndicator className="text-primary" size="large" />
       </View>
     )
   }

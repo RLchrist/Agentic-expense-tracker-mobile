@@ -16,13 +16,14 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useBudgetStore } from '../../store/budgetStore'
-import { COLORS } from '../../constants'
+import { useAppTheme } from '../../hooks/useAppTheme'
 import { Expense } from '../../types'
 import { processRecurringExpenses, processBudgetResets } from '../../services/recurring/recurringService'
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 
 export default function DashboardScreen({ navigation }: any) {
+  const { colors } = useAppTheme()
   const [showAI, setShowAI] = useState(false)
   const [inputText, setInputText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -185,7 +186,7 @@ export default function DashboardScreen({ navigation }: any) {
           <RefreshControl
             refreshing={isLoading}
             onRefresh={fetchExpenses}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
       >
@@ -196,7 +197,7 @@ export default function DashboardScreen({ navigation }: any) {
             <Text className="text-xl font-bold text-text mt-[2px]">{profile?.full_name ?? 'User'}</Text>
           </View>
           <TouchableOpacity onPress={signOut} className="flex-row items-center py-1.5 px-3 bg-surface rounded-full border border-border">
-            <LogOut size={14} color={COLORS.textSecondary} className="mr-1.5" />
+            <LogOut size={14} className="text-textSecondary mr-1.5" />
             <Text className="text-textSecondary text-[12px] font-semibold">Sign Out</Text>
           </TouchableOpacity>
         </View>
@@ -205,7 +206,7 @@ export default function DashboardScreen({ navigation }: any) {
         <View 
           className="m-6 p-8 bg-primary rounded-[32px] items-center"
           style={{
-            shadowColor: COLORS.primary,
+            shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.3,
             shadowRadius: 20,
@@ -242,7 +243,7 @@ export default function DashboardScreen({ navigation }: any) {
                   navigation.navigate('AddExpense')
                 }}
               >
-                <Plus size={20} color={COLORS.white} />
+                <Plus size={20} className="text-white" />
                 <Text className="text-white text-[15px] font-medium">Manual Add</Text>
               </TouchableOpacity>
 
@@ -253,7 +254,7 @@ export default function DashboardScreen({ navigation }: any) {
                   openGallery()
                 }}
               >
-                <ImageIcon size={20} color={COLORS.white} />
+                <ImageIcon size={20} className="text-white" />
                 <Text className="text-white text-[15px] font-medium">Photos & Files</Text>
               </TouchableOpacity>
             </View>
@@ -281,13 +282,13 @@ export default function DashboardScreen({ navigation }: any) {
                 className="w-[38px] h-[38px] rounded-full justify-center items-center"
                 onPress={() => setShowActionMenu(!showActionMenu)}
               >
-                <Plus size={24} color={COLORS.text} />
+                <Plus size={24} className="text-text" />
               </TouchableOpacity>
               
               <TextInput
                 className="flex-1 text-text text-[15px] px-4 max-h-[100px]"
                 placeholder="How much did you spend?"
-                placeholderTextColor={COLORS.textSecondary}
+                placeholderTextColor={colors.textSecondary}
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -295,16 +296,16 @@ export default function DashboardScreen({ navigation }: any) {
 
               <View className="flex-row gap-4 px-2">
                 <TouchableOpacity onPress={openCamera}>
-                  <Camera size={20} color={COLORS.textSecondary} />
+                  <Camera size={20} className="text-textSecondary" />
                 </TouchableOpacity>
                 <TouchableOpacity 
                   className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
                   onPress={isRecording ? stopVoiceInput : startVoiceInput}
                 >
                   {isRecording ? (
-                    <Square size={20} color={COLORS.error} />
+                    <Square size={20} className="text-error" />
                   ) : (
-                    <Mic size={20} color={COLORS.textSecondary} />
+                    <Mic size={20} className="text-textSecondary" />
                   )}
                 </TouchableOpacity>
               </View>
@@ -315,7 +316,7 @@ export default function DashboardScreen({ navigation }: any) {
                   onPress={handleManualParse}
                   disabled={isParsing}
                 >
-                  {isParsing ? <ActivityIndicator size="small" color={COLORS.white} /> : <ArrowRight size={24} color={COLORS.white} />}
+                  {isParsing ? <ActivityIndicator size="small" className="text-white" /> : <ArrowRight size={24} className="text-white" />}
                 </TouchableOpacity>
               )}
             </View>
@@ -336,7 +337,7 @@ export default function DashboardScreen({ navigation }: any) {
             ))
           ) : (
             <View className="items-center py-12">
-              <Wind size={48} color={COLORS.textSecondary} className="mb-2" />
+              <Wind size={48} className="text-textSecondary mb-2" />
               <Text className="text-text text-lg font-bold">No expenses yet</Text>
             </View>
           )}
@@ -354,6 +355,7 @@ export default function DashboardScreen({ navigation }: any) {
 }
 
 function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: string) => void }) {
+  const { colors } = useAppTheme()
   return (
     <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
       <View 
@@ -363,7 +365,7 @@ function ExpenseItem({ expense, onDelete }: { expense: Expense; onDelete: (id: s
         {expense.category?.icon ? (
           <Text className="text-[22px]">{expense.category.icon}</Text>
         ) : (
-          <Box size={24} color={expense.category?.color ?? COLORS.primary} />
+          <Box size={24} color={expense.category?.color ?? colors.primary} />
         )}
       </View>
       <View className="flex-1 ml-3">

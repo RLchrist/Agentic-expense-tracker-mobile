@@ -9,6 +9,7 @@ import { supabase } from './src/services/supabase/client'
 import { useAuthStore } from './src/store/authStore'
 import { useSettingsStore } from './src/store/settingsStore'
 import RootNavigator from './src/navigation/RootNavigator'
+import Toast from './src/components/common/Toast'
 import { drainQueue, getPendingCount } from './src/services/sync/offlineSync'
 import './src/i18n'
 
@@ -62,6 +63,7 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <RootNavigator />
+        <Toast />
       </SafeAreaProvider>
     </View>
   )

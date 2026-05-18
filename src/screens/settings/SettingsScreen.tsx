@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useSettingsStore } from '../../store/settingsStore'
-import { COLORS, themeColors } from '../../constants'
+import { useUiStore } from '../../store/uiStore'
+import { themeColors } from '../../constants'
 import { getPendingCount } from '../../services/sync/offlineSync'
 import { useState, useEffect } from 'react'
 import { useColorScheme } from 'nativewind'
@@ -26,6 +27,7 @@ import { changeLang } from '../../i18n'
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation()
+  const { showToast } = useUiStore()
   const { profile, signOut, updateProfile } = useAuthStore()
   const { expenses, categories } = useExpenseStore()
   const { isBiometricEnabled, setBiometricEnabled, theme, setTheme } = useSettingsStore()
@@ -91,12 +93,12 @@ export default function SettingsScreen() {
   const handleBiometricToggle = async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync()
     if (!hasHardware) {
-      Alert.alert(t('errors.error'), t('biometric.no_hardware'))
+      showToast(t('biometric.no_hardware'))
       return
     }
     const isEnrolled = await LocalAuthentication.isEnrolledAsync()
     if (!isEnrolled) {
-      Alert.alert(t('errors.error'), t('biometric.not_enrolled'))
+      showToast(t('biometric.not_enrolled'))
       return
     }
 
@@ -109,6 +111,7 @@ export default function SettingsScreen() {
       })
       if (result.success) {
         setBiometricEnabled(true)
+        showToast('Biometric enabled!')
       }
     }
   }
@@ -154,7 +157,7 @@ export default function SettingsScreen() {
             <Text className="text-text text-lg font-bold">{profile?.full_name ?? 'User'}</Text>
             <Text className="text-textSecondary text-[13px]">{profile?.email ?? ''}</Text>
             <View className="self-start bg-primary/15 px-2 py-0.5 rounded-md border border-primary flex-row items-center gap-1">
-              <Coins size={12} color={COLORS.primary} />
+              <Coins size={12} className="text-primary" />
               <Text className="text-primary text-[12px] font-semibold">{profile?.currency ?? 'NPR'}</Text>
             </View>
           </View>
@@ -184,7 +187,7 @@ export default function SettingsScreen() {
               icon={<RefreshCw size={18} color={colors.textSecondary} />}
               label={t('settings.pending_sync')}
               value={pendingSync > 0 ? t('settings.pending_count', { count: pendingSync }) : t('settings.all_synced')}
-              valueColor={pendingSync > 0 ? COLORS.warning : COLORS.success}
+              valueColor={pendingSync > 0 ? colors.warning : colors.success}
             />
             <SettingsRow
               icon={<Cloud size={18} color={colors.textSecondary} />}
@@ -210,16 +213,16 @@ export default function SettingsScreen() {
                     if (granted) {
                       await scheduleDailyReminder()
                       setNotificationsEnabled(true)
-                      Alert.alert('✅', t('settings.daily_reminder_enabled'))
+                      showToast(t('settings.daily_reminder_enabled'))
                     } else {
-                      Alert.alert(t('errors.error'), t('settings.permission_denied'))
+                      showToast(t('settings.permission_denied'))
                     }
                   } else {
                     setNotificationsEnabled(false)
                   }
                 }}
-                trackColor={{ false: colors.border, true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
             <SettingsRow icon={<Coins size={18} color={colors.textSecondary} />} label={t('settings.currency')} value={profile?.currency ?? 'NPR'} />
@@ -270,7 +273,7 @@ export default function SettingsScreen() {
                 try {
                   await exportToCSV(expenses)
                 } catch {
-                  Alert.alert(t('errors.error'), t('errors.could_not_export_csv'))
+                  showToast(t('errors.could_not_export_csv'))
                 }
               }}
             >
@@ -286,7 +289,7 @@ export default function SettingsScreen() {
                 try {
                   await exportToPDF(expenses, profile?.full_name ?? 'User', 'All Time')
                 } catch {
-                  Alert.alert(t('errors.error'), t('errors.could_not_export_pdf'))
+                  showToast(t('errors.could_not_export_pdf'))
                 }
               }}
             >
@@ -304,14 +307,14 @@ export default function SettingsScreen() {
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleClearData}>
               <View className="flex-row items-center gap-2">
-                <Trash2 size={18} color={COLORS.error} />
+                <Trash2 size={18} className="text-error" />
                 <Text className="text-error text-[15px]">{t('settings.clear_all_data')}</Text>
               </View>
               <ChevronRight size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-border" onPress={handleSignOut}>
               <View className="flex-row items-center gap-2">
-                <LogOut size={18} color={COLORS.error} />
+                <LogOut size={18} className="text-error" />
                 <Text className="text-error text-[15px]">{t('auth.sign_out')}</Text>
               </View>
               <ChevronRight size={20} color={colors.textSecondary} />

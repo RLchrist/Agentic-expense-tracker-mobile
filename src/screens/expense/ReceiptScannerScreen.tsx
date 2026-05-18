@@ -10,7 +10,7 @@ import {
   Camera, Sparkles, FileText, Wallet, Tag, 
   Calendar, CreditCard, Pin, X, ArrowLeft, Check 
 } from 'lucide-react-native'
-import { COLORS } from '../../constants'
+
 import { useExpenseStore } from '../../store/expenseStore'
 import { ParsedExpense } from '../../services/ai/parseExpense'
 
@@ -99,7 +99,7 @@ export default function ReceiptScannerScreen({ navigation }: any) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <View className="flex-1 justify-center items-center gap-4 p-8">
-          <Camera size={64} color={COLORS.textSecondary} />
+          <Camera size={64} className="text-textSecondary" />
           <Text className="text-text text-[22px] font-bold">Camera Access Needed</Text>
           <Text className="text-textSecondary text-center text-[15px]">
             We need camera access to scan receipts
@@ -120,23 +120,23 @@ export default function ReceiptScannerScreen({ navigation }: any) {
       <SafeAreaView className="flex-1 bg-background">
         <ScrollView contentContainerClassName="p-6 gap-4">
           <View className="flex-row items-center justify-center gap-2">
-            <Sparkles size={24} color={COLORS.primary} />
+            <Sparkles size={24} className="text-primary" />
             <Text className="text-text text-[22px] font-bold text-center">Receipt Scanned!</Text>
           </View>
           <View className="bg-surface rounded-2xl p-4 border border-border">
-            <PreviewRow icon={<FileText size={16} color={COLORS.textSecondary} />} label="Title" value={parsed.title} />
-            <PreviewRow icon={<Wallet size={16} color={COLORS.primary} />} label="Amount" value={`Rs. ${parsed.amount}`} highlight />
-            <PreviewRow icon={<Tag size={16} color={COLORS.textSecondary} />} label="Category" value={parsed.category_name} />
-            <PreviewRow icon={<Calendar size={16} color={COLORS.textSecondary} />} label="Date" value={parsed.expense_date} />
-            <PreviewRow icon={<CreditCard size={16} color={COLORS.textSecondary} />} label="Payment" value={parsed.payment_method} />
-            {parsed.note && <PreviewRow icon={<Pin size={16} color={COLORS.textSecondary} />} label="Note" value={parsed.note} />}
+            <PreviewRow icon={<FileText size={16} className="text-textSecondary" />} label="Title" value={parsed.title} />
+            <PreviewRow icon={<Wallet size={16} className="text-primary" />} label="Amount" value={`Rs. ${parsed.amount}`} highlight />
+            <PreviewRow icon={<Tag size={16} className="text-textSecondary" />} label="Category" value={parsed.category_name} />
+            <PreviewRow icon={<Calendar size={16} className="text-textSecondary" />} label="Date" value={parsed.expense_date} />
+            <PreviewRow icon={<CreditCard size={16} className="text-textSecondary" />} label="Payment" value={parsed.payment_method} />
+            {parsed.note && <PreviewRow icon={<Pin size={16} className="text-textSecondary" />} label="Note" value={parsed.note} />}
           </View>
           <View className="flex-row gap-2">
             <TouchableOpacity
               className="flex-1 bg-surface rounded-xl p-4 items-center border border-border flex-row justify-center gap-2"
               onPress={() => setParsed(null)}
             >
-              <ArrowLeft size={16} color={COLORS.textSecondary} />
+              <ArrowLeft size={16} className="text-textSecondary" />
               <Text className="text-textSecondary font-semibold">Rescan</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -145,10 +145,10 @@ export default function ReceiptScannerScreen({ navigation }: any) {
               disabled={saving}
             >
               {saving
-                ? <ActivityIndicator color={COLORS.white} />
+                ? <ActivityIndicator className="text-white" />
                 : (
                   <>
-                    <Check size={18} color={COLORS.white} />
+                    <Check size={18} className="text-white" />
                     <Text className="text-white font-bold text-base">Save</Text>
                   </>
                 )
@@ -166,7 +166,7 @@ export default function ReceiptScannerScreen({ navigation }: any) {
         {/* Overlay */}
         <View className="flex-1 justify-between p-6 pb-10">
           <TouchableOpacity className="self-end bg-black/50 w-10 h-10 rounded-full justify-center items-center" onPress={() => navigation.goBack()}>
-            <X size={24} color={COLORS.white} />
+            <X size={24} className="text-white" />
           </TouchableOpacity>
 
           {/* Scan frame */}
@@ -177,7 +177,7 @@ export default function ReceiptScannerScreen({ navigation }: any) {
             <View className="absolute bottom-0 right-0 border-primary border-r-[3px] border-b-[3px] w-6 h-6 rounded-br-lg" />
             {scanning && (
               <View className="items-center gap-2">
-                <ActivityIndicator color={COLORS.primary} size="large" />
+                <ActivityIndicator className="text-primary" size="large" />
                 <Text className="text-white text-sm font-semibold">Reading receipt...</Text>
               </View>
             )}

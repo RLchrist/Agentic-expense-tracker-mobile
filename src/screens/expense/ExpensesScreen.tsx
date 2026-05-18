@@ -6,10 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Plus, Search, X, Trash2, List, FileText } from 'lucide-react-native'
 import { useExpenseStore } from '../../store/expenseStore'
-import { COLORS } from '../../constants'
+import { useAppTheme } from '../../hooks/useAppTheme'
 import { Expense } from '../../types'
 
 export default function ExpensesScreen({ navigation }: any) {
+  const { colors } = useAppTheme()
   const { expenses, isLoading, fetchExpenses, deleteExpense } = useExpenseStore()
   const [search, setSearch] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -69,24 +70,24 @@ export default function ExpensesScreen({ navigation }: any) {
           className="flex-row items-center bg-primary rounded-xl px-4 py-2"
           onPress={() => navigation.navigate('AddExpense')}
         >
-          <Plus size={16} color={COLORS.white} className="mr-1" />
+          <Plus size={16} className="text-white mr-1" />
           <Text className="text-white font-bold text-sm">Add</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
       <View className="flex-row items-center bg-surface rounded-xl mx-6 mb-2 px-4 border border-border">
-        <Search size={16} color={COLORS.textSecondary} className="mr-2" />
+        <Search size={16} className="text-textSecondary mr-2" />
         <TextInput
           className="flex-1 text-text text-[15px] py-2"
           placeholder="Search expenses..."
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={search}
           onChangeText={setSearch}
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>
-            <X size={18} color={COLORS.textSecondary} />
+            <X size={18} className="text-textSecondary" />
           </TouchableOpacity>
         )}
       </View>
@@ -122,7 +123,7 @@ export default function ExpensesScreen({ navigation }: any) {
               {item.icon ? (
                 <Text className="mr-1.5 text-base">{item.icon}</Text>
               ) : (
-                <List size={14} color={selectedCategory === item.id ? COLORS.white : COLORS.textSecondary} className="mr-1.5" />
+                <List size={14} color={selectedCategory === item.id ? colors.white : colors.textSecondary} className="mr-1.5" />
               )}
               <Text className={`text-[13px] font-medium ${selectedCategory === item.id ? 'text-white' : 'text-textSecondary'}`}>
                 {item.name}
@@ -150,13 +151,13 @@ export default function ExpensesScreen({ navigation }: any) {
           <RefreshControl
             refreshing={isLoading}
             onRefresh={fetchExpenses}
-            tintColor={COLORS.primary}
+            tintColor={colors.primary}
           />
         }
         contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { padding: 24, paddingTop: 8, gap: 8 }}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center pt-20">
-            <List size={52} color={COLORS.textSecondary} className="mb-2" />
+            <List size={52} className="text-textSecondary mb-2" />
             <Text className="text-text text-lg font-bold">No expenses found</Text>
             <Text className="text-textSecondary text-sm mt-1">
               {search ? 'Try a different search' : 'Add your first expense'}
@@ -178,6 +179,7 @@ function ExpenseRow({
   expense: Expense
   onDelete: (id: string) => void
 }) {
+  const { colors } = useAppTheme()
   return (
     <View className="flex-row items-center bg-surface rounded-2xl p-4 border border-border">
       <View 
@@ -187,7 +189,7 @@ function ExpenseRow({
         {expense.category?.icon ? (
           <Text className="text-[22px]">{expense.category.icon}</Text>
         ) : (
-          <List size={24} color={expense.category?.color ?? COLORS.primary} />
+          <List size={24} color={expense.category?.color ?? colors.primary} />
         )}
       </View>
 
@@ -202,7 +204,7 @@ function ExpenseRow({
         </View>
         {expense.note ? (
           <View className="flex-row items-center mt-1">
-            <FileText size={10} color={COLORS.textSecondary} className="mr-1" />
+            <FileText size={10} className="text-textSecondary mr-1" />
             <Text className="text-textSecondary text-[11px]" numberOfLines={1}>{expense.note}</Text>
           </View>
         ) : null}
@@ -216,7 +218,7 @@ function ExpenseRow({
           onPress={() => onDelete(expense.id)}
           className="p-1"
         >
-          <Trash2 size={16} color={COLORS.error} />
+          <Trash2 size={16} className="text-error" />
         </TouchableOpacity>
       </View>
     </View>
