@@ -251,7 +251,7 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
         )}
 
-        <View className="px-6 mb-8 z-10">
+        <View className="px-6 mb-3 z-10">
           {showActionMenu && (
             <View 
               className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
@@ -278,16 +278,6 @@ export default function DashboardScreen({ navigation }: any) {
                 <Text className="text-white text-[15px] font-medium">Photos & Files</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                className="flex-row items-center p-4 gap-4 border-t border-white/10"
-                onPress={() => {
-                  setShowActionMenu(false)
-                  navigation.navigate('SplitExpense')
-                }}
-              >
-                <Users size={20} className="text-white" />
-                <Text className="text-white text-[15px] font-medium">Split Expense</Text>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -324,6 +314,7 @@ export default function DashboardScreen({ navigation }: any) {
                 onChangeText={setInputText}
                 multiline
               />
+               
 
               <View className="flex-row gap-4 px-2">
                 <TouchableOpacity onPress={openCamera}>
@@ -352,6 +343,16 @@ export default function DashboardScreen({ navigation }: any) {
               )}
             </View>
           </View>
+        </View>
+
+        <View className="mb-6 items-center">
+          <TouchableOpacity 
+            className="flex-row items-center justify-center bg-surface py-2 px-6 rounded-full border border-border shadow-sm"
+            onPress={() => navigation.navigate('SplitExpense')}
+          >
+            <Users size={18} className="text-primary mr-2" />
+            <Text className="text-text font-semibold text-[14px]">Split Group Expense</Text>
+          </TouchableOpacity>
         </View>
 
         <View className="flex-row justify-between items-center px-6 mb-4">
