@@ -1,23 +1,160 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity,
-  RefreshControl, Alert, TextInput
+  RefreshControl, Alert, TextInput, Image, ActivityIndicator, ScrollView
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Plus, Search, X, Trash2, List, FileText } from 'lucide-react-native'
+import { 
+  Plus, Search, X, Trash2, List, FileText, Pencil, 
+  Camera, Mic, Square, ArrowRight, Image as ImageIcon 
+} from 'lucide-react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { Swipeable } from 'react-native-gesture-handler'
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition'
+import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
+import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
+import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useAppTheme } from '../../hooks/useAppTheme'
 import { Expense } from '../../types'
 import { Skeleton } from '../../components/common/Skeleton'
+import { formatCurrency } from '../../utils'
 
 export default function ExpensesScreen({ navigation }: any) {
   const { colors } = useAppTheme()
-  const { expenses, isLoading, fetchExpenses, deleteExpense } = useExpenseStore()
+  const { profile } = useAuthStore()
+  const { expenses, isLoading, fetchExpenses, deleteExpense, fetchCategories } = useExpenseStore()
   const [search, setSearch] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
-  useEffect(() => { fetchExpenses() }, [])
+  // AI & Speech States
+  const [showAI, setShowAI] = useState(false)
+  const [inputText, setInputText] = useState('')
+  const [isParsing, setIsParsing] = useState(false)
+  const [attachedImages, setAttachedImages] = useState<string[]>([])
+  const [isRecording, setIsRecording] = useState(false)
+  const [showActionMenu, setShowActionMenu] = useState(false)
+  const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
+  const recognitionActive = useRef(false)
+
+  useEffect(() => {
+    fetchExpenses()
+    fetchCategories()
+  }, [])
+
+  // Real-time speech recognition events
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = event.results[0]?.transcript
+    if (transcript) {
+      setInputText(transcript)
+    }
+  })
+
+  useSpeechRecognitionEvent('end', () => {
+    setIsRecording(false)
+  })
+
+  useSpeechRecognitionEvent('error', (event) => {
+    setIsRecording(false)
+    const errorCode = String(event.error || '').toLowerCase()
+    
+    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
+      return
+    }
+    
+    console.error('Speech recognition error:', event.error, event.message)
+    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
+  })
+
+  const startVoiceInput = async () => {
+    if (isRecording) return
+    setIsRecording(true)
+    recognitionActive.current = true
+    try {
+      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      if (!result.granted) {
+        setIsRecording(false)
+        recognitionActive.current = false
+        Alert.alert('Permission Denied', 'We need microphone and speech recognition access.')
+        return
+      }
+      
+      if (!recognitionActive.current) {
+        setIsRecording(false)
+        return
+      }
+
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        continuous: false,
+      })
+    } catch (e) {
+      console.error('STT Error:', e)
+      Alert.alert('Error', 'Could not start voice input')
+      setIsRecording(false)
+      recognitionActive.current = false
+    }
+  }
+
+  const stopVoiceInput = () => {
+    recognitionActive.current = false
+    ExpoSpeechRecognitionModule.abort()
+    setIsRecording(false)
+  }
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need camera access.')
+      return
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+    })
+    if (!result.canceled) {
+      setAttachedImages(prev => [...prev, result.assets[0].uri])
+    }
+  }
+
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need gallery access.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsMultipleSelection: true,
+    })
+    if (!result.canceled) {
+      const uris = result.assets.map(a => a.uri)
+      setAttachedImages(prev => [...prev, ...uris])
+    }
+  }
+
+  const handleManualParse = async () => {
+    if (isParsing) return
+    setIsParsing(true)
+    const result = await parseExpenseFromText(
+      inputText, 
+      useExpenseStore.getState().categories,
+      attachedImages
+    )
+    setIsParsing(false)
+    if (result) {
+      setParsedResult(result)
+      setShowAI(true)
+      setAttachedImages([])
+    } else {
+      Alert.alert('Error', 'Could not understand the expense. Please try again.')
+    }
+  }
 
   const filtered = expenses.filter((e) => {
     const matchSearch =
@@ -48,13 +185,6 @@ export default function ExpensesScreen({ navigation }: any) {
 
   const totalFiltered = filtered.reduce((sum, e) => sum + Number(e.amount), 0)
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete Expense', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteExpense(id) },
-    ])
-  }
-
   const FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'today', label: 'Today' },
@@ -67,13 +197,99 @@ export default function ExpensesScreen({ navigation }: any) {
       {/* Header */}
       <View className="flex-row justify-between items-center p-6 pb-2">
         <Text className="text-[26px] font-bold text-text">Expenses</Text>
-        <TouchableOpacity
-          className="flex-row items-center bg-primary rounded-xl px-4 py-2"
-          onPress={() => navigation.navigate('AddExpense')}
-        >
-          <Plus size={16} className="text-white mr-1" />
-          <Text className="text-white font-bold text-sm">Add</Text>
-        </TouchableOpacity>
+      </View>
+
+      {/* AI Voice/Photo/Text Input Bar */}
+      <View className="px-6 mb-3 z-10">
+        {showActionMenu && (
+          <View 
+            className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
+          >
+            <TouchableOpacity 
+              className="flex-row items-center p-4 gap-4"
+              onPress={() => {
+                setShowActionMenu(false)
+                navigation.navigate('AddExpense')
+              }}
+            >
+              <Plus size={20} className="text-white" />
+              <Text className="text-white text-[15px] font-medium">Manual Add</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              className="flex-row items-center p-4 gap-4 border-t border-white/10"
+              onPress={() => {
+                setShowActionMenu(false)
+                openGallery()
+              }}
+            >
+              <ImageIcon size={20} className="text-white" />
+              <Text className="text-white text-[15px] font-medium">Photos & Files</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View className="bg-surface rounded-[28px] p-1 border border-border shadow-md">
+          {attachedImages.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="py-2 px-1">
+              {attachedImages.map((uri, idx) => (
+                <View key={idx} className="mr-2 relative">
+                  <Image source={{ uri }} className="w-[70px] h-[70px] rounded-xl border border-border" />
+                  <TouchableOpacity
+                    className="absolute -top-1.5 -right-1.5 bg-error w-[22px] h-[22px] rounded-full justify-center items-center border-2 border-surface"
+                    onPress={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Text className="text-white text-[12px] font-bold">✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <View className="flex-row items-center py-0.5">
+            <TouchableOpacity 
+              className="w-[38px] h-[38px] rounded-full justify-center items-center"
+              onPress={() => setShowActionMenu(!showActionMenu)}
+            >
+              <Plus size={24} className="text-text" />
+            </TouchableOpacity>
+            
+            <TextInput
+              className="flex-1 text-text text-[15px] px-4 max-h-[100px]"
+              placeholder="How much did you spend?"
+              placeholderTextColor={colors.textSecondary}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+            />
+             
+            <View className="flex-row gap-4 px-2">
+              <TouchableOpacity onPress={openCamera}>
+                <Camera size={20} className="text-textSecondary" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
+                onPress={isRecording ? stopVoiceInput : startVoiceInput}
+              >
+                {isRecording ? (
+                  <Square size={20} className="text-error" />
+                ) : (
+                  <Mic size={20} className="text-textSecondary" />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {(inputText.trim() !== '' || attachedImages.length > 0) && (
+              <TouchableOpacity 
+                className="w-[46px] h-[46px] rounded-full bg-primary justify-center items-center ml-1 shadow-md"
+                onPress={handleManualParse}
+                disabled={isParsing}
+              >
+                {isParsing ? <ActivityIndicator size="small" className="text-white" /> : <ArrowRight size={24} className="text-white" />}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
 
       {/* Search */}
@@ -140,7 +356,7 @@ export default function ExpensesScreen({ navigation }: any) {
           {isLoading ? '...' : `${filtered.length} expense${filtered.length !== 1 ? 's' : ''}`}
         </Text>
         <Text className="text-text font-bold text-[13px]">
-          Rs. {totalFiltered.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
+          {formatCurrency(totalFiltered, profile?.currency ?? 'NPR')}
         </Text>
       </View>
 
@@ -155,7 +371,7 @@ export default function ExpensesScreen({ navigation }: any) {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={(isLoading ? false : filtered.length === 0) ? { flex: 1 } : { padding: 24, paddingTop: 8, gap: 8 }}
+        contentContainerStyle={(isLoading ? false : filtered.length === 0) ? { flex: 1 } : { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, gap: 8 }}
         ListEmptyComponent={
           isLoading ? (
             <View style={{ padding: 24, paddingTop: 8, gap: 8 }}>
@@ -181,8 +397,19 @@ export default function ExpensesScreen({ navigation }: any) {
           )
         }
         renderItem={({ item }) => (
-          <ExpenseRow expense={item} onDelete={handleDelete} />
+          <ExpenseRow 
+            expense={item} 
+            onDelete={deleteExpense} 
+            onEdit={(exp) => navigation.navigate('AddExpense', { expense: exp })} 
+          />
         )}
+      />
+
+      <VoiceExpenseModal
+        visible={showAI}
+        onClose={() => { setShowAI(false); setParsedResult(null); setInputText('') }}
+        onSaved={() => { fetchExpenses(); setInputText('') }}
+        initialParsed={parsedResult}
       />
     </SafeAreaView>
   )
@@ -191,52 +418,118 @@ export default function ExpensesScreen({ navigation }: any) {
 function ExpenseRow({
   expense,
   onDelete,
+  onEdit,
 }: {
   expense: Expense
   onDelete: (id: string) => void
+  onEdit: (expense: Expense) => void
 }) {
   const { colors } = useAppTheme()
-  return (
-    <View className="flex-row items-center bg-surface rounded-2xl p-4 border border-border">
-      <View 
-        className="w-[46px] h-[46px] rounded-xl justify-center items-center" 
-        style={{ backgroundColor: (expense.category?.color ?? '#888') + '33' }}
+  const { profile } = useAuthStore()
+  const swipeableRef = useRef<any>(null)
+  
+  const formattedDate = expense.created_at 
+    ? `${new Date(expense.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${new Date(expense.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })}`
+    : ''
+
+  const renderSwipeActions = () => (
+    <View className="flex-row items-center pl-2 mb-2" style={{ height: '100%' }}>
+      <TouchableOpacity 
+        className="bg-primary justify-center items-center px-4 rounded-xl mr-2 h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          onEdit(expense)
+        }}
       >
-        {expense.category?.icon ? (
-          <Text className="text-[22px]">{expense.category.icon}</Text>
-        ) : (
-          <List size={24} color={expense.category?.color ?? colors.primary} />
-        )}
-      </View>
-
-      <View className="flex-1 ml-3">
-        <Text className="text-text font-semibold text-[15px]" numberOfLines={1}>{expense.title}</Text>
-        <View className="flex-row items-center mt-1 flex-wrap">
-          <Text className="text-textSecondary text-[12px]">{expense.category?.name ?? 'Uncategorized'}</Text>
-          <Text className="text-border mx-1 text-[12px]">·</Text>
-          <Text className="text-textSecondary text-[12px]">{expense.expense_date}</Text>
-          <Text className="text-border mx-1 text-[12px]">·</Text>
-          <Text className="text-textSecondary text-[12px] uppercase">{expense.payment_method}</Text>
-        </View>
-        {expense.note ? (
-          <View className="flex-row items-center mt-1">
-            <FileText size={10} className="text-textSecondary mr-1" />
-            <Text className="text-textSecondary text-[11px]" numberOfLines={1}>{expense.note}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View className="items-end gap-1">
-        <Text className="text-text font-bold text-sm">
-          Rs.{Number(expense.amount).toLocaleString('en-NP')}
-        </Text>
-        <TouchableOpacity
-          onPress={() => onDelete(expense.id)}
-          className="p-1"
-        >
-          <Trash2 size={16} className="text-error" />
-        </TouchableOpacity>
-      </View>
+        <Pencil size={20} className="text-white" />
+      </TouchableOpacity>
+      <TouchableOpacity 
+        className="bg-error justify-center items-center px-4 rounded-xl h-[52px] mr-2"
+        onPress={() => {
+          swipeableRef.current?.close()
+          Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => onDelete(expense.id) }
+          ])
+        }}
+      >
+        <Trash2 size={20} className="text-white" />
+      </TouchableOpacity>
     </View>
+  )
+
+  const renderRightSwipeActions = () => (
+    <View className="flex-row items-center pr-2 mb-2" style={{ height: '100%' }}>
+      <TouchableOpacity 
+        className="bg-primary justify-center items-center px-4 rounded-xl mr-2 h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          onEdit(expense)
+        }}
+      >
+        <Pencil size={20} className="text-white" />
+      </TouchableOpacity>
+      <TouchableOpacity 
+        className="bg-error justify-center items-center px-4 rounded-xl h-[52px]"
+        onPress={() => {
+          swipeableRef.current?.close()
+          Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => onDelete(expense.id) }
+          ])
+        }}
+      >
+        <Trash2 size={20} className="text-white" />
+      </TouchableOpacity>
+    </View>
+  )
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderSwipeActions}
+      renderRightActions={renderRightSwipeActions}
+    >
+      <View className="flex-row items-center bg-surface rounded-xl p-4 mb-2 border border-border">
+        <View 
+          className="w-11 h-11 rounded-xl justify-center items-center" 
+          style={{ backgroundColor: (expense.category?.color ?? '#333') + '22' }}
+        >
+          {expense.category?.icon ? (
+            <Text className="text-[22px]">{expense.category.icon}</Text>
+          ) : (
+            <List size={24} color={expense.category?.color ?? colors.primary} />
+          )}
+        </View>
+
+        <View className="flex-1 ml-3">
+          <Text className="text-text font-semibold text-[15px]" numberOfLines={1}>{expense.title}</Text>
+          <View className="flex-row items-center gap-1.5 mt-0.5">
+            <Text className="text-textSecondary text-[12px]">{expense.category?.name ?? 'Uncategorized'}</Text>
+            {formattedDate && (
+              <>
+                <Text className="text-textSecondary text-[12px]">•</Text>
+                <Text className="text-textSecondary text-[11px]">{formattedDate}</Text>
+              </>
+            )}
+          </View>
+          {expense.note ? (
+            <View className="flex-row items-center mt-1">
+              <FileText size={10} className="text-textSecondary mr-1" />
+              <Text className="text-textSecondary text-[11px]" numberOfLines={1}>{expense.note}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View className="items-end justify-center pr-1">
+          <Text className="text-text font-bold text-[15px]">
+            {formatCurrency(Number(expense.amount), profile?.currency ?? 'NPR')}
+          </Text>
+          <Text className="text-textSecondary text-[10px] mt-0.5 uppercase tracking-wider">
+            {expense.payment_method}
+          </Text>
+        </View>
+      </View>
+    </Swipeable>
   )
 }

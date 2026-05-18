@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, ScrollView,
   TouchableOpacity
@@ -6,15 +6,46 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { 
   Calendar, Tag, CreditCard, TrendingUp, 
-  Banknote, Smartphone, Landmark, Package 
+  Banknote, Smartphone, Landmark, Package,
+  ChevronLeft, ChevronRight
 } from 'lucide-react-native'
+import { useAuthStore } from '../../store/authStore'
 import { useExpenseStore } from '../../store/expenseStore'
 import { useAppTheme } from '../../hooks/useAppTheme'
+import { formatCurrency } from '../../utils'
 
 export default function AnalyticsScreen() {
   const { colors } = useAppTheme()
+  const { profile } = useAuthStore()
   const { expenses, categories } = useExpenseStore()
-  const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month')
+  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
+
+  const chartScrollRef = useRef<ScrollView>(null)
+  const scrollXRef = useRef(0)
+
+  const handleScroll = (event: any) => {
+    scrollXRef.current = event.nativeEvent.contentOffset.x
+  }
+
+  const handleScrollBack = () => {
+    const newOffset = Math.max(0, scrollXRef.current - 15 * 24)
+    chartScrollRef.current?.scrollTo({ x: newOffset, animated: true })
+  }
+
+  const handleScrollNext = () => {
+    const newOffset = scrollXRef.current + 15 * 24
+    chartScrollRef.current?.scrollTo({ x: newOffset, animated: true })
+  }
+
+  useEffect(() => {
+    if (period === 'month' && chartScrollRef.current) {
+      const today = new Date().getDate()
+      const offset = Math.max(0, (today - 1) * 24 - 130)
+      setTimeout(() => {
+        chartScrollRef.current?.scrollTo({ x: offset, animated: true })
+      }, 150)
+    }
+  }, [period])
 
   const filtered = expenses.filter((e) => {
     const now = new Date()
@@ -27,36 +58,111 @@ export default function AnalyticsScreen() {
       return d.getMonth() === now.getMonth() &&
         d.getFullYear() === now.getFullYear()
     }
+    if (period === 'quarter') {
+      const ago = new Date(now); ago.setMonth(now.getMonth() - 3)
+      return d >= ago
+    }
     return d.getFullYear() === now.getFullYear()
   })
 
   // Category breakdown
-  const categoryTotals = categories.map((cat) => {
+  const validCategoryTotals = categories.map((cat) => {
     const total = filtered
       .filter((e) => e.category_id === cat.id)
       .reduce((s, e) => s + Number(e.amount), 0)
     return { ...cat, total }
   }).filter((c) => c.total > 0)
-    .sort((a, b) => b.total - a.total)
 
-  const grandTotal = categoryTotals.reduce((s, c) => s + c.total, 0)
+  const uncategorizedTotal = filtered
+    .filter((e) => !e.category_id || !categories.some((cat) => cat.id === e.category_id))
+    .reduce((s, e) => s + Number(e.amount), 0)
 
-  // Daily spending for bar chart (last 7 days)
-  const dailyData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    const dateStr = d.toISOString().split('T')[0]
-    const total = expenses
-      .filter((e) => e.expense_date === dateStr)
-      .reduce((s, e) => s + Number(e.amount), 0)
-    return {
-      day: d.toLocaleDateString('en', { weekday: 'short' }),
-      total,
-      date: dateStr,
-    }
-  })
+  const categoryTotals: any[] = [...validCategoryTotals]
+  if (uncategorizedTotal > 0) {
+    categoryTotals.push({
+      id: 'uncategorized',
+      name: 'Uncategorized',
+      icon: '📦',
+      color: colors.textSecondary || '#888888',
+      total: uncategorizedTotal,
+    })
+  }
 
-  const maxDaily = Math.max(...dailyData.map((d) => d.total), 1)
+  categoryTotals.sort((a, b) => b.total - a.total)
+
+  const grandTotal = filtered.reduce((s, e) => s + Number(e.amount), 0)
+
+  // Dynamic chart data calculation
+  let chartData: { label: string; total: number }[] = []
+  const now = new Date()
+
+  if (period === 'week') {
+    chartData = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dateStr = d.toISOString().split('T')[0]
+      const total = expenses
+        .filter((e) => e.expense_date === dateStr)
+        .reduce((s, e) => s + Number(e.amount), 0)
+      return {
+        label: d.toLocaleDateString('en', { weekday: 'short' }),
+        total,
+      }
+    })
+  } else if (period === 'month') {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    chartData = Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1
+      const total = expenses
+        .filter((e) => {
+          const d = new Date(e.expense_date)
+          return d.getDate() === dayNum &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear()
+        })
+        .reduce((s, e) => s + Number(e.amount), 0)
+      return {
+        label: String(dayNum),
+        total,
+      }
+    })
+  } else if (period === 'quarter') {
+    chartData = Array.from({ length: 3 }, (_, i) => {
+      const d = new Date()
+      d.setMonth(now.getMonth() - (2 - i))
+      const targetMonth = d.getMonth()
+      const targetYear = d.getFullYear()
+      const total = expenses
+        .filter((e) => {
+          const ed = new Date(e.expense_date)
+          return ed.getMonth() === targetMonth && ed.getFullYear() === targetYear
+        })
+        .reduce((s, e) => s + Number(e.amount), 0)
+      return {
+        label: d.toLocaleDateString('en', { month: 'short' }),
+        total,
+      }
+    })
+  } else if (period === 'year') {
+    chartData = Array.from({ length: 12 }, (_, i) => {
+      const targetMonth = i
+      const total = expenses
+        .filter((e) => {
+          const ed = new Date(e.expense_date)
+          return ed.getMonth() === targetMonth && ed.getFullYear() === now.getFullYear()
+        })
+        .reduce((s, e) => s + Number(e.amount), 0)
+      
+      const dummyDate = new Date()
+      dummyDate.setMonth(targetMonth)
+      return {
+        label: dummyDate.toLocaleDateString('en', { month: 'short' }),
+        total,
+      }
+    })
+  }
+
+  const maxVal = Math.max(...chartData.map((d) => d.total), 1)
 
   // Payment method breakdown
   const paymentTotals = ['cash', 'card', 'upi', 'bank_transfer', 'other'].map((pm) => {
@@ -69,6 +175,7 @@ export default function AnalyticsScreen() {
   const PERIODS = [
     { key: 'week', label: 'Week' },
     { key: 'month', label: 'Month' },
+    { key: 'quarter', label: 'Quarter' },
     { key: 'year', label: 'Year' },
   ]
 
@@ -78,6 +185,104 @@ export default function AnalyticsScreen() {
     upi: <Smartphone size={24} className="text-secondary" />,
     bank_transfer: <Landmark size={24} className="text-warning" />,
     other: <Package size={24} className="text-textSecondary" />
+  }
+
+  const getChartTitle = () => {
+    if (period === 'week') return 'Daily Spending (Last 7 Days)'
+    if (period === 'month') return 'Daily Spending (This Month)'
+    if (period === 'quarter') return 'Monthly Spending (This Quarter)'
+    return 'Monthly Spending (This Year)'
+  }
+
+  const getPeriodLabel = () => {
+    if (period === 'week') return 'This Week'
+    if (period === 'month') return 'This Month'
+    if (period === 'quarter') return 'This Quarter'
+    return 'This Year'
+  }
+
+  const renderChartContent = () => {
+    const barWidth = period === 'month' ? 16 : undefined
+    const containerStyle = period === 'month' ? { gap: 8, paddingRight: 16 } : { gap: 6 }
+    
+    const chartContent = (
+      <View 
+        className={`flex-row items-end h-[140px] ${period === 'month' ? 'pt-4' : 'w-full'}`}
+        style={containerStyle}
+      >
+        {chartData.map((d, i) => {
+          const barHeightPct = maxVal > 0 ? (d.total / maxVal) * 100 : 0
+          const isSelected = period === 'month' && new Date().getDate() === (i + 1)
+          
+          return (
+            <View 
+              key={i} 
+              style={barWidth ? { width: barWidth } : { flex: 1 }}
+              className="items-center h-full justify-end"
+            >
+              <Text className="text-textSecondary text-[9px] mb-0.5" numberOfLines={1}>
+                {d.total > 0 ? (d.total >= 1000 ? `${(d.total / 1000).toFixed(0)}k` : `${d.total}`) : ''}
+              </Text>
+              <View className="w-full h-[95px] bg-background rounded-lg justify-end overflow-hidden">
+                <View
+                  className="w-full rounded-lg min-h-[2px]"
+                  style={{
+                    height: `${barHeightPct}%`,
+                    backgroundColor: d.total > 0 
+                      ? (isSelected ? colors.primary : colors.primary + 'CC') 
+                      : colors.border,
+                  }}
+                />
+              </View>
+              <Text 
+                className={`text-[10px] mt-1 font-bold ${
+                  isSelected ? 'text-primary' : 'text-textSecondary'
+                }`}
+              >
+                {d.label}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    )
+
+    if (period === 'month') {
+      return (
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity 
+            onPress={handleScrollBack} 
+            className="p-1.5 mr-1 bg-background border border-border rounded-full justify-center items-center shadow-sm"
+            style={{ width: 28, height: 28 }}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={16} className="text-text" />
+          </TouchableOpacity>
+          
+          <ScrollView 
+            ref={chartScrollRef}
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            className="flex-1"
+          >
+            {chartContent}
+          </ScrollView>
+
+          <TouchableOpacity 
+            onPress={handleScrollNext} 
+            className="p-1.5 ml-1 bg-background border border-border rounded-full justify-center items-center shadow-sm"
+            style={{ width: 28, height: 28 }}
+            activeOpacity={0.7}
+          >
+            <ChevronRight size={16} className="text-text" />
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    return chartContent
   }
 
   return (
@@ -105,9 +310,9 @@ export default function AnalyticsScreen() {
 
         {/* Total card */}
         <View className="m-6 mt-0 bg-primary rounded-[20px] p-6 items-center">
-          <Text className="text-white/80 text-sm">Total Spent ({period})</Text>
+          <Text className="text-white/80 text-sm">Total Spent ({getPeriodLabel()})</Text>
           <Text className="text-white text-4xl font-bold my-1">
-            Rs. {grandTotal.toLocaleString('en-NP', { minimumFractionDigits: 2 })}
+            {formatCurrency(grandTotal, profile?.currency ?? 'NPR')}
           </Text>
           <Text className="text-white/70 text-[13px]">{filtered.length} transactions</Text>
         </View>
@@ -116,27 +321,9 @@ export default function AnalyticsScreen() {
         <View className="mx-6 mb-4 bg-surface rounded-2xl p-4 border border-border">
           <View className="flex-row items-center mb-4 gap-2">
             <Calendar size={18} className="text-text" />
-            <Text className="text-text font-bold text-base">Daily Spending (Last 7 Days)</Text>
+            <Text className="text-text font-bold text-base">{getChartTitle()}</Text>
           </View>
-          <View className="flex-row items-end h-[140px] gap-1.5">
-            {dailyData.map((d, i) => (
-              <View key={i} className="flex-1 items-center h-full justify-end">
-                <Text className="text-textSecondary text-[9px] mb-0.5">
-                  {d.total > 0 ? `${(d.total / 1000).toFixed(1)}k` : ''}
-                </Text>
-                <View className="w-full h-[100px] bg-background rounded-lg justify-end overflow-hidden">
-                  <View
-                    className="w-full rounded-lg min-h-[2px]"
-                    style={{
-                      height: `${(d.total / maxDaily) * 100}%`,
-                      backgroundColor: d.total > 0 ? colors.primary : colors.border,
-                    }}
-                  />
-                </View>
-                <Text className="text-textSecondary text-[11px] mt-1">{d.day}</Text>
-              </View>
-            ))}
-          </View>
+          {renderChartContent()}
         </View>
 
         {/* Category breakdown */}
@@ -171,7 +358,7 @@ export default function AnalyticsScreen() {
                   </View>
                   <View className="items-end ml-2">
                     <Text className="text-text font-bold text-[13px]">
-                      Rs.{cat.total.toLocaleString('en-NP')}
+                      {formatCurrency(cat.total, profile?.currency ?? 'NPR')}
                     </Text>
                     <Text className="text-textSecondary text-[11px]">{pct.toFixed(1)}%</Text>
                   </View>
@@ -198,7 +385,7 @@ export default function AnalyticsScreen() {
                     <View className="mb-1">{paymentIcons[p.method]}</View>
                     <Text className="text-textSecondary text-[11px] capitalize">{p.method.replace('_', ' ')}</Text>
                     <Text className="text-text font-bold text-[12px] mt-0.5">
-                      Rs.{p.total.toLocaleString('en-NP')}
+                      {formatCurrency(p.total, profile?.currency ?? 'NPR')}
                     </Text>
                     <Text className="text-primary text-[11px]">{pct.toFixed(0)}%</Text>
                   </View>
@@ -225,7 +412,7 @@ export default function AnalyticsScreen() {
                   <Text className="text-textSecondary text-[11px]">{e.expense_date}</Text>
                 </View>
                 <Text className="text-primary font-bold text-sm">
-                  Rs.{Number(e.amount).toLocaleString('en-NP')}
+                  {formatCurrency(Number(e.amount), profile?.currency ?? 'NPR')}
                 </Text>
               </View>
             ))}
