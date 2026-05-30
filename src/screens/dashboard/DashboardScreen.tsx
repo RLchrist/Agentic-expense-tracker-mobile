@@ -1,16 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import {
   View, Text,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Platform, Dimensions
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Image, Platform, Dimensions, Animated
 } from 'react-native'
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg'
 import { ScrollView, Swipeable } from 'react-native-gesture-handler'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition'
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { 
   LogOut, Plus, Image as ImageIcon, Camera, 
   Mic, Square, ArrowRight, Box, Wind, Users,
@@ -25,6 +22,8 @@ import { processRecurringExpenses, processBudgetResets } from '../../services/re
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import { Skeleton } from '../../components/common/Skeleton'
+import OfflineBanner from '../../components/common/OfflineBanner'
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import { formatCurrency } from '../../utils'
 
 export default function DashboardScreen({ navigation }: any) {
@@ -33,10 +32,10 @@ export default function DashboardScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [attachedImages, setAttachedImages] = useState<string[]>([])
-  const [isRecording, setIsRecording] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
   const { profile, signOut } = useAuthStore()
+  const { isOffline } = useNetworkStatus()
   
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showDropdown, setShowDropdown] = useState(false)
@@ -54,69 +53,31 @@ export default function DashboardScreen({ navigation }: any) {
     getTotalByPeriod, deleteExpense: handleDeleteExpense
   } = useExpenseStore()
   const { budgets, fetchBudgets } = useBudgetStore()
-  const recognitionActive = useRef(false)
 
-  // Real-time speech recognition events
-  useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results[0]?.transcript
-    if (transcript) {
-      setInputText(transcript)
-    }
-  })
-
-  useSpeechRecognitionEvent('end', () => {
-    setIsRecording(false)
-  })
-
-  useSpeechRecognitionEvent('error', (event) => {
-    setIsRecording(false)
-    const errorCode = String(event.error || '').toLowerCase();
-    
-    // Silently ignore 'no-speech' and 'aborted' errors as they are common 
-    // when stopping the microphone manually or quickly.
-    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
-      return
-    }
-    
-    console.error('Speech recognition error:', event.error, event.message)
-    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
+  // Direct callback — fires from native event with zero intermediate renders
+  const { isRecording, isTranscribing, mode, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder({
+    onTranscript: (text) => setInputText(text),
   })
 
   const startVoiceInput = async () => {
-    if (isRecording) return
-    setIsRecording(true)
-    recognitionActive.current = true
+    if (isRecording || isTranscribing) return
     try {
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
-      if (!result.granted) {
-        setIsRecording(false)
-        recognitionActive.current = false
-        Alert.alert('Permission Denied', 'We need microphone and speech recognition access.')
-        return
-      }
-      
-      if (!recognitionActive.current) {
-        setIsRecording(false)
-        return
-      }
-
-      ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
-        interimResults: true,
-        continuous: false,
-      })
+      await triggerStartRecording()
     } catch (e) {
-      console.error('STT Error:', e)
+      console.error('Voice start failed:', e)
       Alert.alert('Error', 'Could not start voice input')
-      setIsRecording(false)
-      recognitionActive.current = false
     }
   }
 
-  const stopVoiceInput = () => {
-    recognitionActive.current = false
-    ExpoSpeechRecognitionModule.abort() // Immediate stop
-    setIsRecording(false)
+  const stopVoiceInput = async () => {
+    try {
+      const text = await triggerStopRecording()
+      if (text) {
+        setInputText(text)
+      }
+    } catch (e) {
+      console.error('Voice error:', e)
+    }
   }
 
   const openCamera = async () => {
@@ -269,6 +230,7 @@ export default function DashboardScreen({ navigation }: any) {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      <OfflineBanner />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -362,6 +324,17 @@ export default function DashboardScreen({ navigation }: any) {
                 className="flex-row items-center p-4 gap-4 border-t border-white/10"
                 onPress={() => {
                   setShowActionMenu(false)
+                  openCamera()
+                }}
+              >
+                <Camera size={20} className="text-white" />
+                <Text className="text-white text-[15px] font-medium">Camera</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="flex-row items-center p-4 gap-4 border-t border-white/10"
+                onPress={() => {
+                  setShowActionMenu(false)
                   openGallery()
                 }}
               >
@@ -397,33 +370,46 @@ export default function DashboardScreen({ navigation }: any) {
                 <Plus size={24} className="text-text" />
               </TouchableOpacity>
               
-              <TextInput
-                className="flex-1 text-text text-[15px] px-4 max-h-[100px]"
-                placeholder="How much did you spend?"
-                placeholderTextColor={colors.textSecondary}
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-              />
+              {isRecording && mode === 'groq' ? (
+                <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
+                  <PulsingOrb color={colors.primary} />
+                  <Text className="text-textSecondary text-[14px] font-semibold ml-2">Listening...</Text>
+                </View>
+              ) : isTranscribing ? (
+                <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text className="text-textSecondary text-[14px] font-semibold ml-2">Transcribing...</Text>
+                </View>
+              ) : (
+                <TextInput
+                  className="flex-1 text-text text-[15px] px-4 max-h-[100px]"
+                  placeholder="How much did you spend?"
+                  placeholderTextColor={colors.textSecondary}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  multiline
+                />
+              )}
                
 
               <View className="flex-row gap-4 px-2">
-                <TouchableOpacity onPress={openCamera}>
-                  <Camera size={20} className="text-textSecondary" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
-                  onPress={isRecording ? stopVoiceInput : startVoiceInput}
-                >
-                  {isRecording ? (
-                    <Square size={20} className="text-error" />
-                  ) : (
-                    <Mic size={20} className="text-textSecondary" />
-                  )}
-                </TouchableOpacity>
+                {isTranscribing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <TouchableOpacity 
+                    className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
+                    onPress={isRecording ? stopVoiceInput : startVoiceInput}
+                  >
+                    {isRecording ? (
+                      <Square size={20} className="text-error" />
+                    ) : (
+                      <Mic size={20} className="text-textSecondary" />
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {(inputText.trim() !== '' || attachedImages.length > 0) && (
+              {(inputText.trim() !== '' || attachedImages.length > 0) && !isRecording && !isTranscribing && (
                 <TouchableOpacity 
                   className="w-[46px] h-[46px] rounded-full bg-primary justify-center items-center ml-1 shadow-md"
                   onPress={handleManualParse}
@@ -733,5 +719,60 @@ function ExpenseItem({ expense, onDelete, onEdit }: { expense: Expense; onDelete
         </View>
       </View>
     </Swipeable>
+  )
+}
+
+function PulsingOrb({ color }: { color: string }) {
+  const scale = useRef(new Animated.Value(1)).current
+  const opacity = useRef(new Animated.Value(0.6)).current
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.6,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0.2,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.6,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    ).start()
+  }, [scale, opacity])
+
+  return (
+    <View className="justify-center items-center w-8 h-8">
+      {/* Outer Pulse */}
+      <Animated.View
+        style={{
+          transform: [{ scale }],
+          opacity,
+          backgroundColor: color,
+        }}
+        className="absolute w-4 h-4 rounded-full"
+      />
+      {/* Inner Solid Orb */}
+      <View
+        style={{ backgroundColor: color }}
+        className="w-3.5 h-3.5 rounded-full z-10"
+      />
+    </View>
   )
 }

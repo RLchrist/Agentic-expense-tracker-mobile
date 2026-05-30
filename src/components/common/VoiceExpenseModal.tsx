@@ -4,10 +4,8 @@ import {
   ActivityIndicator, Animated, Alert, TextInput, ScrollView,
   PanResponder, Dimensions
 } from 'react-native'
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition'
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import { 
   Sparkles, X, Mic, Square, FileText, 
   Wallet, Tag, Calendar, CreditCard, 
@@ -15,7 +13,7 @@ import {
 } from 'lucide-react-native'
 import { PAYMENT_METHODS } from '../../constants'
 import { useAppTheme } from '../../hooks/useAppTheme'
-import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
+import { ParsedExpense, parseExpenseFromText } from '../../services/ai/parseExpense'
 import { useExpenseStore } from '../../store/expenseStore'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -29,16 +27,19 @@ interface Props {
   initialParsed?: ParsedExpense | null
 }
 
-type Stage = 'idle' | 'recording' | 'transcribing' | 'parsing' | 'preview' | 'saving'
+type Stage = 'idle' | 'recording' | 'parsing' | 'preview' | 'saving'
 
 export default function VoiceExpenseModal({ visible, onClose, onSaved, initialParsed }: Props) {
   const { colors } = useAppTheme()
   const { categories, addExpense } = useExpenseStore()
+  const { isOffline } = useNetworkStatus()
   const [stage, setStage] = useState<Stage>('idle')
   
   // Animation & Pan states
   const sheetHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current
   const [isFullPage, setIsFullPage] = useState(false)
+
+  const { isRecording, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder()
 
   useEffect(() => {
     if (initialParsed) {
@@ -56,7 +57,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
-        // dy is negative when pulling up
         const newHeight = Math.max(MIN_SHEET_HEIGHT, Math.min(MAX_SHEET_HEIGHT, MIN_SHEET_HEIGHT - gestureState.dy))
         sheetHeight.setValue(newHeight)
       },
@@ -86,7 +86,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   ).current
   
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
-  const [realtimeTranscript, setRealtimeTranscript] = useState('')
   const [isEditingCategory, setIsEditingCategory] = useState(false)
   const [isEditingPayment, setIsEditingPayment] = useState(false)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
@@ -96,7 +95,6 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   const [isAddingPayment, setIsAddingPayment] = useState(false)
   const [newPaymentName, setNewPaymentName] = useState('')
   
-  const recognitionActive = useRef(false)
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   const startPulse = () => {
@@ -113,90 +111,58 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
     pulseAnim.setValue(1)
   }
 
-  // Real-time speech recognition events
-  useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results[0]?.transcript
-    if (transcript) {
-      setRealtimeTranscript(transcript)
-      if (event.isFinal && stage === 'recording') {
-        setStage('parsing')
-        stopPulse()
-        handleTranscriptionResult(transcript)
-      }
-    }
-  })
-
-  useSpeechRecognitionEvent('end', () => {
-    if (stage === 'recording') {
-      stopPulse()
-      if (realtimeTranscript.trim()) {
-        setStage('parsing')
-        handleTranscriptionResult(realtimeTranscript)
-      } else {
-        setStage('idle')
-      }
-    }
-  })
-
-  useSpeechRecognitionEvent('error', (event) => {
-    stopPulse()
-    setStage('idle')
-    const errorCode = String(event.error || '').toLowerCase();
-    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
+  const startRecording = async () => {
+    if (isOffline) {
+      Alert.alert('Voice Unavailable', 'Voice input is not available in offline mode.')
       return
     }
-    console.error('Speech recognition error:', event.error, event.message)
-    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
-  })
-
-  const startRecording = async () => {
-    if (stage === 'recording') return
     try {
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
-      if (!result.granted) {
-        Alert.alert('Permission needed', 'Microphone and speech recognition permissions are required')
+      const success = await triggerStartRecording()
+      if (success) {
+        setStage('recording')
+        startPulse()
+      }
+    } catch (e) {
+      console.error('Failed to start recording', e)
+      Alert.alert('Error', 'Could not start recording')
+    }
+  }
+
+  const stopRecording = async () => {
+    stopPulse()
+    try {
+      const text = await triggerStopRecording()
+      if (!text) {
+        setStage('idle')
         return
       }
 
-      setStage('recording')
-      recognitionActive.current = true
-      setRealtimeTranscript('')
-      startPulse()
+      setStage('parsing')
 
-      ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
-        interimResults: true,
-        continuous: false,
-      })
-    } catch (e) {
-      console.error('Recording failed', e)
-      Alert.alert('Error', 'Could not start recording')
-      setStage('idle')
-      recognitionActive.current = false
-    }
-  }
-
-  const stopRecording = () => {
-    recognitionActive.current = false
-    stopPulse()
-    ExpoSpeechRecognitionModule.abort()
-    setStage('idle')
-  }
-
-  const handleTranscriptionResult = async (text: string) => {
-    try {
       const result = await parseExpenseFromText(text, categories)
-      if (result) {
-        setParsed(result)
-        setStage('preview')
-        Animated.spring(sheetHeight, { toValue: SCREEN_HEIGHT * 0.8, useNativeDriver: false }).start()
-      } else {
+
+      if (!result) {
         setStage('idle')
-        Alert.alert('Error', 'Could not understand the expense.')
+        Alert.alert(
+          'Could not understand',
+          'Please try again or type your expense instead.',
+          [{ text: 'OK' }]
+        )
+        return
       }
+
+      setParsed(result)
+      setStage('preview')
+      Animated.spring(sheetHeight, { toValue: SCREEN_HEIGHT * 0.8, useNativeDriver: false }).start()
+
     } catch (e) {
-      console.error('Parsing failed', e)
+      console.error('Voice processing error:', e)
       setStage('idle')
+      Alert.alert(
+        'Voice Error',
+        'Could not process your speech. Please type your expense instead.',
+        [{ text: 'OK' }]
+      )
     }
   }
 
@@ -214,6 +180,8 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       expense_date: parsed.expense_date,
       payment_method: parsed.payment_method,
       is_synced: true,
+      is_recurring: false,
+      recurring_period: null,
       local_id: null,
     })
 
@@ -254,6 +222,9 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   const handleClose = () => {
     setStage('idle')
     setParsed(null)
+    if (isRecording) {
+      triggerStopRecording().catch(() => {})
+    }
     sheetHeight.setValue(MIN_SHEET_HEIGHT)
     setIsFullPage(false)
     onClose()
@@ -285,7 +256,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   <TouchableOpacity
                     className={`w-[60px] h-[60px] rounded-full bg-primary justify-center items-center ${stage === 'recording' ? 'bg-error' : ''}`}
                     onPress={stage === 'recording' ? stopRecording : startRecording}
-                    disabled={stage === 'transcribing' || stage === 'parsing'}
+                    disabled={stage === 'parsing'}
                   >
                     {stage === 'recording' ? (
                       <Square size={30} className="text-white" />
@@ -295,16 +266,10 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   </TouchableOpacity>
                 </Animated.View>
 
-                {realtimeTranscript !== '' && (
-                  <View className="w-full p-4 bg-background rounded-xl my-5">
-                    <Text className="text-text text-base text-center">{realtimeTranscript}</Text>
-                  </View>
-                )}
-
-                <Text className="text-textSecondary mt-2.5">
+                <Text className="text-textSecondary mt-4 text-center">
                   {stage === 'idle' && 'Tap mic and say your expense'}
-                  {stage === 'recording' && 'Listening...'}
-                  {stage === 'parsing' && 'AI is parsing...'}
+                  {stage === 'recording' && '🔴 Recording... tap to stop'}
+                  {stage === 'parsing' && '✨ AI is parsing...'}
                 </Text>
                 {stage === 'parsing' && <ActivityIndicator className="text-primary mt-5" />}
               </View>

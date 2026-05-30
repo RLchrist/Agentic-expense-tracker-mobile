@@ -1,5 +1,4 @@
 import * as SQLite from 'expo-sqlite'
-import { SyncQueueItem } from '../types'
 
 const DB_NAME = 'expense_tracker_queue.db'
 

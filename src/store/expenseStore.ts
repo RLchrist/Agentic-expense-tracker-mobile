@@ -7,6 +7,7 @@ import { createMMKV } from 'react-native-mmkv'
 
 const cacheStorage = createMMKV({ id: 'expense-cache' })
 const CATEGORIES_CACHE_KEY = 'cached_categories'
+const EXPENSES_CACHE_KEY = 'cached_expenses'
 
 interface ExpenseState {
   expenses: Expense[]
@@ -69,14 +70,34 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   error: null,
 
   fetchExpenses: async () => {
+    // 1. Load from MMKV cache instantly (works offline)
+    try {
+      const cached = cacheStorage.getString(EXPENSES_CACHE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed.length > 0) set({ expenses: parsed })
+      }
+    } catch {}
+
+    // 2. Try fetching fresh data from Supabase
     set({ isLoading: true, error: null })
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*, category:categories(*)')
-      .order('expense_date', { ascending: false })
-      .limit(100)
-    if (error) set({ error: error.message })
-    else set({ expenses: data ?? [] })
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*, category:categories(*)')
+        .order('expense_date', { ascending: false })
+        .limit(100)
+      if (error) {
+        set({ error: error.message })
+      } else {
+        set({ expenses: data ?? [] })
+        // 3. Update MMKV cache on success
+        cacheStorage.set(EXPENSES_CACHE_KEY, JSON.stringify(data ?? []))
+      }
+    } catch (e) {
+      // Offline — cached data already loaded above
+      console.warn('Expense fetch failed (offline?):', e)
+    }
     set({ isLoading: false })
   },
 
@@ -149,7 +170,7 @@ addExpense: async (expense) => {
   const payload = { ...expense, user_id: user.id, local_id: localId }
 
   // Look up category for optimistic UI display
-  const category = get().categories.find((c) => c.id === expense.category_id) ?? null
+  const category = get().categories.find((c) => c.id === expense.category_id) ?? undefined
 
   // Check network
   const net = await NetInfo.fetch()
@@ -215,7 +236,7 @@ updateExpense: async (id, updates) => {
   if (!session?.user) return
 
   const payload = { ...updates, id }
-  const category = updates.category_id ? (get().categories.find((c) => c.id === updates.category_id) ?? null) : null
+  const category = updates.category_id ? (get().categories.find((c) => c.id === updates.category_id) ?? undefined) : undefined
 
   const net = await NetInfo.fetch()
 
@@ -262,10 +283,31 @@ updateExpense: async (id, updates) => {
 },
 
   deleteExpense: async (id) => {
-    await supabase.from('expenses').delete().eq('id', id)
+    // 1. Always remove from state immediately (optimistic)
     set((state) => ({
       expenses: state.expenses.filter((e) => e.id !== id)
     }))
+
+    // 2. Check network
+    const net = await NetInfo.fetch()
+
+    if (!net.isConnected) {
+      // 3. Offline — enqueue DELETE operation
+      enqueue({ operation: 'DELETE', table: 'expenses', payload: { id } })
+      return
+    }
+
+    // 4. Online — delete from Supabase with fallback to queue
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', id)
+      if (error) {
+        console.warn('Delete failed, queuing offline:', error.message)
+        enqueue({ operation: 'DELETE', table: 'expenses', payload: { id } })
+      }
+    } catch (e) {
+      console.warn('Network error on delete, queuing offline:', e)
+      enqueue({ operation: 'DELETE', table: 'expenses', payload: { id } })
+    }
   },
 
   getTotalByPeriod: (period) => {
@@ -286,3 +328,9 @@ updateExpense: async (id, updates) => {
       .reduce((sum, e) => sum + Number(e.amount), 0)
   },
 }))
+
+/** Clear cached expenses from MMKV — call on sign out */
+export const clearExpenseCache = () => {
+  cacheStorage.remove(EXPENSES_CACHE_KEY)
+  cacheStorage.remove(CATEGORIES_CACHE_KEY)
+}

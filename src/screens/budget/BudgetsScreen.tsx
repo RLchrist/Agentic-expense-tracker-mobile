@@ -16,6 +16,7 @@ import { checkBudgetAlerts } from '../../services/notifications/budgetAlerts'
 import { addBudgetSchema, type AddBudgetFormData } from './budgetSchema'
 import OutlinedInput from '../../components/forms/OutlinedInput'
 import { Skeleton } from '../../components/common/Skeleton'
+import OfflineBanner from '../../components/common/OfflineBanner'
 
 export default function BudgetsScreen() {
   const { colors } = useAppTheme()
@@ -42,6 +43,7 @@ useEffect(() => {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      <OfflineBanner />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={

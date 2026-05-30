@@ -1,8 +1,6 @@
 import NetInfo from '@react-native-community/netinfo'
 import { supabase } from '../supabase/client'
 import { parseTextOffline } from './localNLP'
-import { parseReceiptOffline } from './localOCR'
-import { parseVoiceOffline } from './localSTT'
 
 export interface AIResponse {
   success: boolean
@@ -36,7 +34,7 @@ export const aiRouter = {
       const localResult = await parseTextOffline(input, categories)
       return { success: true, data: localResult, source: 'offline' }
     } catch (e) {
-      return { success: false, error: 'Local AI failed: ' + e.message, source: 'offline' }
+      return { success: false, error: 'Local AI failed: ' + (e as any).message, source: 'offline' }
     }
   },
 
@@ -64,57 +62,25 @@ export const aiRouter = {
   /**
    * Process receipt images
    */
-  async parseReceipt(imagePath: string, categories: any[]): Promise<AIResponse> {
+  async parseReceipt(imagePath: string, categories: any[], imageBase64?: string): Promise<AIResponse> {
     const state = await NetInfo.fetch()
 
     if (state.isConnected && state.isInternetReachable) {
       try {
-        // Note: For online, we might need to send base64, but local uses file path
-        const { data, error } = await supabase.functions.invoke('parse-receipt', {
-          body: { image_path: imagePath, categories },
-        })
+        const body: Record<string, any> = { categories }
+        if (imageBase64) {
+          body.images = [imageBase64]
+        }
+        const { data, error } = await supabase.functions.invoke('parse-expense', { body })
         if (error) throw error
         return { success: true, data: data.data, source: 'online' }
       } catch (e) {
-        console.warn('Online OCR failed, falling back to local...', e)
+        console.warn('Online OCR failed:', e)
       }
     }
 
-    // Fallback to local OCR
-    console.log('Using On-device OCR (Tesseract)...')
-    try {
-      const localResult = await parseReceiptOffline(imagePath, categories)
-      return { success: true, data: localResult, source: 'offline' }
-    } catch (e) {
-      return { success: false, error: 'Local OCR failed: ' + e.message, source: 'offline' }
-    }
+    return { success: false, error: 'Receipt scanning is unavailable offline. Please type your expense instead.', source: 'offline' }
   },
 
-  /**
-   * Process voice commands
-   */
-  async parseVoice(audioPath: string, categories: any[]): Promise<AIResponse> {
-    const state = await NetInfo.fetch()
 
-    if (state.isConnected && state.isInternetReachable) {
-      try {
-        const { data, error } = await supabase.functions.invoke('parse-voice', {
-          body: { audio_path: audioPath, categories },
-        })
-        if (error) throw error
-        return { success: true, data: data.data, source: 'online' }
-      } catch (e) {
-        console.warn('Online Voice failed, falling back to local...', e)
-      }
-    }
-
-    // Fallback to local STT
-    console.log('Using On-device STT (Whisper)...')
-    try {
-      const localResult = await parseVoiceOffline(audioPath, categories)
-      return { success: true, data: localResult, source: 'offline' }
-    } catch (e) {
-      return { success: false, error: 'Local Voice failed: ' + e.message, source: 'offline' }
-    }
-  }
 }

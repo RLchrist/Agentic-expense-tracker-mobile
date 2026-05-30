@@ -36,8 +36,7 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
-      "expo-audio",
-      "expo-speech-recognition"
+      "expo-audio"
     ],
     "extra": {
       "eas": {

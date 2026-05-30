@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase/client'
 import { Profile } from '../types'
+import { clearExpenseCache } from './expenseStore'
+import { clearBudgetCache } from './budgetStore'
+import * as SQLite from 'expo-sqlite'
 
 interface AuthState {
   session: Session | null
@@ -65,6 +68,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut()
+
+    // Clear all MMKV caches
+    clearExpenseCache()
+    clearBudgetCache()
+
+    // Clear the SQLite offline queue
+    try {
+      const db = await SQLite.openDatabaseAsync('expense_tracker_queue.db')
+      await db.execAsync('DELETE FROM outbox_queue')
+    } catch (e) {
+      console.warn('Failed to clear offline queue:', e)
+    }
+
     set({ session: null, user: null, profile: null, isAuthenticated: false })
   },
 }))

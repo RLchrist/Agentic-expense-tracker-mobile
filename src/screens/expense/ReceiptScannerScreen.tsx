@@ -47,7 +47,7 @@ export default function ReceiptScannerScreen({ navigation }: any) {
 
         // Use the AI Router (Online with Offline fallback)
         const { aiRouter } = await import('../../services/ai/aiRouter')
-        const result = await aiRouter.parseReceipt(compressed.uri, categories)
+        const result = await aiRouter.parseReceipt(compressed.uri, categories, base64)
 
         if (!result.success) {
           // Fallback — ask user to type
@@ -85,6 +85,8 @@ export default function ReceiptScannerScreen({ navigation }: any) {
       expense_date: parsed.expense_date,
       payment_method: parsed.payment_method,
       is_synced: true,
+      is_recurring: false,
+      recurring_period: null,
       local_id: null,
     })
     setSaving(false)

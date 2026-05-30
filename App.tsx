@@ -29,9 +29,27 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initApp = async () => {
+      // 1. Read cached session from MMKV instantly — zero network
+      const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
-    })
+
+      // 2. Only refresh token in background if online — never block app
+      if (session) {
+        const netState = await NetInfo.fetch()
+        if (netState.isConnected && netState.isInternetReachable) {
+          // Fire-and-forget — never await before showing app
+          supabase.auth.refreshSession().then(({ data: { session: refreshed } }) => {
+            if (refreshed) setSession(refreshed)
+          }).catch((err) => {
+            console.warn('Background session refresh failed (non-fatal):', err)
+          })
+        }
+      }
+    }
+
+    initApp()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => setSession(session)
     )
@@ -71,3 +89,4 @@ export default function App() {
     </View>
   )
 }
+

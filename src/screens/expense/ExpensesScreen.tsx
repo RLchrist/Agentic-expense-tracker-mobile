@@ -9,11 +9,7 @@ import {
   Camera, Mic, Square, ArrowRight, Image as ImageIcon 
 } from 'lucide-react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { Swipeable } from 'react-native-gesture-handler'
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition'
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { parseExpenseFromText, ParsedExpense } from '../../services/ai/parseExpense'
 import VoiceExpenseModal from '../../components/common/VoiceExpenseModal'
 import { useAuthStore } from '../../store/authStore'
@@ -21,11 +17,14 @@ import { useExpenseStore } from '../../store/expenseStore'
 import { useAppTheme } from '../../hooks/useAppTheme'
 import { Expense } from '../../types'
 import { Skeleton } from '../../components/common/Skeleton'
+import OfflineBanner from '../../components/common/OfflineBanner'
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import { formatCurrency } from '../../utils'
 
 export default function ExpensesScreen({ navigation }: any) {
   const { colors } = useAppTheme()
   const { profile } = useAuthStore()
+  const { isOffline } = useNetworkStatus()
   const { expenses, isLoading, fetchExpenses, deleteExpense, fetchCategories } = useExpenseStore()
   const [search, setSearch] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -36,75 +35,38 @@ export default function ExpensesScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
   const [attachedImages, setAttachedImages] = useState<string[]>([])
-  const [isRecording, setIsRecording] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
-  const recognitionActive = useRef(false)
+  const { isRecording, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder()
 
   useEffect(() => {
     fetchExpenses()
     fetchCategories()
   }, [])
 
-  // Real-time speech recognition events
-  useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results[0]?.transcript
-    if (transcript) {
-      setInputText(transcript)
-    }
-  })
-
-  useSpeechRecognitionEvent('end', () => {
-    setIsRecording(false)
-  })
-
-  useSpeechRecognitionEvent('error', (event) => {
-    setIsRecording(false)
-    const errorCode = String(event.error || '').toLowerCase()
-    
-    if (errorCode === 'no-speech' || errorCode === 'aborted' || errorCode.includes('abort')) {
-      return
-    }
-    
-    console.error('Speech recognition error:', event.error, event.message)
-    Alert.alert('Voice Error', event.message || 'Could not recognize speech')
-  })
-
   const startVoiceInput = async () => {
     if (isRecording) return
-    setIsRecording(true)
-    recognitionActive.current = true
+    if (isOffline) {
+      Alert.alert('Voice Unavailable', 'Voice input is not available in offline mode.')
+      return
+    }
     try {
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
-      if (!result.granted) {
-        setIsRecording(false)
-        recognitionActive.current = false
-        Alert.alert('Permission Denied', 'We need microphone and speech recognition access.')
-        return
-      }
-      
-      if (!recognitionActive.current) {
-        setIsRecording(false)
-        return
-      }
-
-      ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
-        interimResults: true,
-        continuous: false,
-      })
+      await triggerStartRecording()
     } catch (e) {
-      console.error('STT Error:', e)
+      console.error('Voice start failed:', e)
       Alert.alert('Error', 'Could not start voice input')
-      setIsRecording(false)
-      recognitionActive.current = false
     }
   }
 
-  const stopVoiceInput = () => {
-    recognitionActive.current = false
-    ExpoSpeechRecognitionModule.abort()
-    setIsRecording(false)
+  const stopVoiceInput = async () => {
+    try {
+      const text = await triggerStopRecording()
+      if (text) {
+        setInputText(text)
+      }
+    } catch (e) {
+      console.error('Voice error:', e)
+    }
   }
 
   const openCamera = async () => {
@@ -194,6 +156,7 @@ export default function ExpensesScreen({ navigation }: any) {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      <OfflineBanner />
       {/* Header */}
       <View className="flex-row justify-between items-center p-6 pb-2">
         <Text className="text-[26px] font-bold text-text">Expenses</Text>
@@ -267,16 +230,18 @@ export default function ExpensesScreen({ navigation }: any) {
               <TouchableOpacity onPress={openCamera}>
                 <Camera size={20} className="text-textSecondary" />
               </TouchableOpacity>
-              <TouchableOpacity 
-                className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
-                onPress={isRecording ? stopVoiceInput : startVoiceInput}
-              >
-                {isRecording ? (
-                  <Square size={20} className="text-error" />
-                ) : (
-                  <Mic size={20} className="text-textSecondary" />
-                )}
-              </TouchableOpacity>
+              {!isOffline && (
+                <TouchableOpacity 
+                  className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
+                  onPress={isRecording ? stopVoiceInput : startVoiceInput}
+                >
+                  {isRecording ? (
+                    <Square size={20} className="text-error" />
+                  ) : (
+                    <Mic size={20} className="text-textSecondary" />
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {(inputText.trim() !== '' || attachedImages.length > 0) && (

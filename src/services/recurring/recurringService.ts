@@ -32,14 +32,12 @@ export const processRecurringExpenses = async (expenses: Expense[]) => {
 
       if (!exists) {
         console.log(`Generating recurring instance for: ${exp.title}`)
+        const { id, user_id, created_at, updated_at, ...rest } = exp
         await addExpense({
-          ...exp,
-          id: undefined as any, // New ID
+          ...rest,
           expense_date: format(nextInstanceDate, 'yyyy-MM-dd'),
           is_synced: false,
           local_id: null,
-          created_at: undefined as any,
-          updated_at: undefined as any,
         })
       }
     }

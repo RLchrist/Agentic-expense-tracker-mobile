@@ -1,7 +1,8 @@
-import * as FileSystem from 'expo-file-system'
 import * as Manipulator from 'expo-image-manipulator'
+import NetInfo from '@react-native-community/netinfo'
 import { supabase } from '../supabase/client'
 import { Category } from '../../types'
+import { aiRouter } from './aiRouter'
 
 export interface ParsedExpense {
   title: string
@@ -14,17 +15,36 @@ export interface ParsedExpense {
   confidence: number
 }
 
+const isValid = (d: any): d is ParsedExpense =>
+  d && (!!d.title || d.amount > 0)
+
 export const parseExpenseFromText = async (
   text: string,
   categories: Category[],
   imageUris: string[] = []
 ): Promise<ParsedExpense | null> => {
   try {
+    // If no images, route through aiRouter (has offline fallback to localNLP)
+    if (imageUris.length === 0) {
+      const result = await aiRouter.parseExpense(text, categories)
+      if (isValid(result.data)) return result.data as ParsedExpense
+      return null
+    }
+
+    // Check network before attempting edge function
+    const netState = await NetInfo.fetch()
+    const isOnline = netState.isConnected && netState.isInternetReachable
+
+    if (!isOnline) {
+      const fallback = await aiRouter.parseExpense(text, categories)
+      if (isValid(fallback.data)) return fallback.data as ParsedExpense
+      return null
+    }
+
     // Convert and resize images to base64 if any
     const base64Images = await Promise.all(
       imageUris.map(async (uri) => {
         try {
-          // Resize image to be safe with payload limits
           const manipResult = await Manipulator.manipulateAsync(
             uri,
             [{ resize: { width: 1024 } }],
@@ -49,26 +69,22 @@ export const parseExpenseFromText = async (
     })
 
     if (error) {
-      console.error('Edge function error details:', {
-        message: error.message,
-        status: error.status,
-        // @ts-ignore
-        details: error.details,
-      })
+      const fallback = await aiRouter.parseExpense(text, categories)
+      if (isValid(fallback.data)) return fallback.data as ParsedExpense
       return null
     }
 
-    if (data?.success && data?.data) {
+    if (data?.success && isValid(data.data)) {
       return data.data as ParsedExpense
-    }
-
-    if (data?.error) {
-      console.error('AI Parsing Error:', data.error, data.details)
     }
 
     return null
   } catch (e) {
     console.error('Parse expense error:', e)
+    try {
+      const fallback = await aiRouter.parseExpense(text, categories)
+      if (isValid(fallback.data)) return fallback.data as ParsedExpense
+    } catch {}
     return null
   }
 }
