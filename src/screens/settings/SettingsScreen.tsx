@@ -1,13 +1,14 @@
 import {
   View, Text, ScrollView, Image,
-  TouchableOpacity, Alert, Switch
+  TouchableOpacity, Alert, Switch, TextInput
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { 
   RefreshCw, Cloud, Bell, Globe, Smartphone, 
   Sparkles, Database, BarChart2, FileText, 
   Trash2, LogOut, ChevronRight, Coins,
-  Fingerprint, Sun, Languages, Lock, Edit3
+  Fingerprint, Sun, Languages, Lock, Edit3,
+  Minus, Plus
 } from 'lucide-react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { useTranslation } from 'react-i18next'
@@ -22,7 +23,8 @@ import { useColorScheme } from 'nativewind'
 import { requestNotificationPermission, scheduleDailyReminder } from '../../services/notifications/budgetAlerts'
 import { exportToCSV, exportToPDF } from '../../services/export/exportService'
 import * as ImagePicker from 'expo-image-picker'
-import { File } from 'expo-file-system'
+import * as MediaLibrary from 'expo-media-library'
+import * as FileSystem from 'expo-file-system/legacy'
 import { supabase } from '../../services/supabase/client'
 import { changeLang } from '../../i18n'
 
@@ -37,6 +39,8 @@ export default function SettingsScreen({ navigation }: any) {
   const colors = themeColors(isDark)
   const [pendingSync, setPendingSync] = useState(0)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [momoCount, setMomoCount] = useState(5)
+  const MOMO_PRICE = 100
 
   useEffect(() => {
     getPendingCount().then(setPendingSync)
@@ -135,6 +139,28 @@ export default function SettingsScreen({ navigation }: any) {
   const handleLanguageToggle = () => {
     const newLang = i18n.language === 'np' ? 'en' : 'np'
     changeLang(newLang)
+  }
+
+  const handlePay = async () => {
+    const { status } = await MediaLibrary.requestPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to save images to your device.')
+      return
+    }
+
+    try {
+      const assetSource = Image.resolveAssetSource(require('../../../assets/esewa-QR.jpeg'))
+      const localUri = FileSystem.cacheDirectory + 'esewa-QR.jpeg'
+      await FileSystem.copyAsync({ from: assetSource.uri, to: localUri })
+      await MediaLibrary.createAssetAsync(localUri)
+
+      Alert.alert(
+        'QR Code Saved!',
+        `eSewa QR for Rs. ${MOMO_PRICE * momoCount} has been saved to your device.\n\n"Code is like momo — the more you fold, the better it gets. Thanks for supporting open source! 🚀"\n\n— A solo dev who survives on momo and midnight coffee ☕`
+      )
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to save QR code.')
+    }
   }
 
   const languageLabel = i18n.language === 'np'
@@ -271,8 +297,8 @@ export default function SettingsScreen({ navigation }: any) {
           <Text className="text-textSecondary text-[12px] font-bold mb-1 uppercase tracking-widest">{t('settings.about')}</Text>
           <View className="bg-surface rounded-2xl border border-border overflow-hidden">
             <SettingsRow icon={<Smartphone size={18} color={colors.textSecondary} />} label={t('settings.app_version')} value="1.0.0" />
-            <SettingsRow icon={<Sparkles size={18} color={colors.textSecondary} />} label={t('settings.ai_model')} value="Llama 3.1" />
-            <SettingsRow icon={<Database size={18} color={colors.textSecondary} />} label={t('settings.database')} value="Supabase" />
+            {/* <SettingsRow icon={<Sparkles size={18} color={colors.textSecondary} />} label={t('settings.ai_model')} value="Llama 3.1" />
+            <SettingsRow icon={<Database size={18} color={colors.textSecondary} />} label={t('settings.database')} value="Supabase" /> */}
           </View>
         </View>
 
@@ -340,6 +366,61 @@ export default function SettingsScreen({ navigation }: any) {
                 <Text className="text-error text-[15px]">{t('auth.sign_out')}</Text>
               </View>
               <ChevronRight size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Buy me a Momo */}
+        <View className="px-6 mb-4">
+          <View className="flex-row items-center gap-2 mb-1">
+            <Image source={require('../../../assets/momo-icon.png')} className="w-14 h-14" resizeMode="contain" />
+            <Text className="text-textSecondary text-[12px] font-bold uppercase tracking-widest">BUY ME A MOMO</Text>
+          </View>
+          <View className="bg-surface rounded-2xl border border-border p-4">
+            <Text className="text-text text-[13px] mb-3">How many plates of momo would you like to buy me?</Text>
+
+            <View className="flex-row items-center justify-center gap-4 mb-4">
+              <TouchableOpacity
+                className="w-10 h-10 rounded-full bg-border justify-center items-center"
+                onPress={() => setMomoCount(Math.max(1, momoCount - 1))}
+              >
+                <Minus size={20} className="text-text" />
+              </TouchableOpacity>
+
+              <TextInput
+                className="w-20 h-14 bg-background rounded-xl text-text text-center text-[22px] font-bold border border-border"
+                value={String(momoCount)}
+                onChangeText={(val) => {
+                  const num = parseInt(val) || 1
+                  setMomoCount(Math.max(1, Math.min(100, num)))
+                }}
+                keyboardType="number-pad"
+                selectTextOnFocus
+              />
+
+              <TouchableOpacity
+                className="w-10 h-10 rounded-full bg-border justify-center items-center"
+                onPress={() => setMomoCount(Math.min(100, momoCount + 1))}
+              >
+                <Plus size={20} className="text-text" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-textSecondary text-[13px]">Rs. {MOMO_PRICE} x {momoCount} plate{momoCount !== 1 ? 's' : ''}</Text>
+              <Text className="text-text text-[20px] font-bold">Rs. {MOMO_PRICE * momoCount}</Text>
+            </View>
+
+            <TouchableOpacity
+              className="flex-row items-center justify-center gap-3 bg-primary rounded-xl py-3.5"
+              onPress={handlePay}
+            >
+              <Image
+                source={require('../../../assets/esewa-QR.jpeg')}
+                className="w-6 h-6 rounded"
+                resizeMode="contain"
+              />
+              <Text className="text-white text-[15px] font-bold">Pay Rs.{MOMO_PRICE * momoCount}</Text>
             </TouchableOpacity>
           </View>
         </View>
