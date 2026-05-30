@@ -161,7 +161,7 @@ export default function ExpensesScreen({ navigation }: any) {
     <SafeAreaView className="flex-1 bg-background">
       <OfflineBanner />
       {/* Header */}
-      <View className="flex-row justify-between items-center p-6 pb-6">
+      <View className="flex-row justify-between items-center px-6 pt-2 pb-6">
         {showSearch ? (
           <View className="flex-1 flex-row items-center bg-surface rounded-xl px-4 border border-border">
             <Search size={16} className="text-textSecondary mr-2" />

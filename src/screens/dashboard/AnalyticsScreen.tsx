@@ -289,7 +289,7 @@ export default function AnalyticsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View className="p-6 pb-2">
+        <View className="px-6 pt-2 pb-4">
           <Text className="text-[26px] font-bold text-text">Analytics</Text>
         </View>
 
