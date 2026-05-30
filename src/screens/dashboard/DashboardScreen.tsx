@@ -55,7 +55,7 @@ export default function DashboardScreen({ navigation }: any) {
   const { budgets, fetchBudgets } = useBudgetStore()
 
   // Direct callback — fires from native event with zero intermediate renders
-  const { isRecording, isTranscribing, isActivating, mode, metering, startRecording: triggerStartRecording, stopRecording: triggerStopRecording, preWarmRecorder } = useVoiceRecorder({
+  const { isRecording, isTranscribing, mode, metering, startRecording: triggerStartRecording, stopRecording: triggerStopRecording, preWarmRecorder } = useVoiceRecorder({
     onTranscript: (text) => setInputText(text),
   })
 
@@ -375,12 +375,7 @@ export default function DashboardScreen({ navigation }: any) {
                 <Plus size={24} className="text-text" />
               </TouchableOpacity>
               
-              {isActivating ? (
-                <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text className="text-textSecondary text-[14px] font-semibold ml-2">Warming up mic...</Text>
-                </View>
-              ) : isRecording ? (
+              {isRecording ? (
                 <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
                   <AudioWaveformVisualizer metering={metering} isRecording={isRecording} mode={mode} color={colors.primary} />
                   <Text className="text-textSecondary text-[14px] font-semibold ml-2 animate-pulse">Listening...</Text>
@@ -404,12 +399,12 @@ export default function DashboardScreen({ navigation }: any) {
 
               <View className="flex-row gap-4 px-2">
                   <TouchableOpacity 
-                    className={(isRecording || isActivating) ? "bg-error/15 rounded-[15px] p-0.5" : ""}
+                    className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
                     onPress={isRecording ? stopVoiceInput : startVoiceInput}
-                    disabled={isTranscribing || isActivating}
-                    style={{ opacity: (isTranscribing || isActivating) ? 0.5 : 1 }}
+                    disabled={isTranscribing}
+                    style={{ opacity: isTranscribing ? 0.5 : 1 }}
                   >
-                    {(isRecording || isActivating) ? (
+                    {isRecording ? (
                       <Square size={24} className="text-error" />
                     ) : (
                       <Mic size={24} className="text-textSecondary" />

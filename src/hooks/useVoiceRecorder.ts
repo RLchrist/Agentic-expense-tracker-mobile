@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Alert, Platform } from 'react-native'
 import NetInfo from '@react-native-community/netinfo'
 import {
@@ -39,6 +39,24 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   const endResolveRef = useRef<((value: string | null) => void) | null>(null)
   const activeModeRef = useRef<'groq' | 'native'>('native')
   const isPreparedRef = useRef(false)
+
+  // --- CACHED VALUES FOR SUB-MILLISECOND START ---
+  // NetInfo.fetch() is async (50-200ms). Cache it so we never block on it in the critical path.
+  const netStateRef = useRef({ isConnected: true })
+  // Cache permission grants so we don't re-ask on every tap
+  const permGrantedRef = useRef(false)
+  const nativePermGrantedRef = useRef(false)
+
+  // Initialize cached network state once and keep it fresh via a listener
+  useEffect(() => {
+    NetInfo.fetch().then((s) => {
+      netStateRef.current = { isConnected: s.isConnected ?? true }
+    })
+    const unsub = NetInfo.addEventListener((s) => {
+      netStateRef.current = { isConnected: s.isConnected ?? true }
+    })
+    return () => unsub()
+  }, [])
 
   // Initialize the high-quality audio recorder for Groq Whisper with hardware metering enabled
   const audioRecorder = useAudioRecorder({
@@ -132,8 +150,6 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
     return result.text || null
   }
 
-  const [isActivating, setIsActivating] = useState(false)
-
   /**
    * Pre-warms microphone permissions and pre-initializes recording hardware
    * to eliminate critical-path startup delays when the user eventually taps the mic.
@@ -143,6 +159,7 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
       if (isPreparedRef.current) return
       const perm = await requestRecordingPermissionsAsync()
       if (perm.granted) {
+        permGrantedRef.current = true
         await audioRecorder.prepareToRecordAsync()
         isPreparedRef.current = true
       }
@@ -152,11 +169,11 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   }, [audioRecorder])
 
   const startRecording = useCallback(async () => {
-    setIsActivating(true)
+    // No "activating" state — we start recording immediately for zero-lag perception.
+    // Hardware initialization happens behind the scenes; failures surface as errors.
     try {
-      // 1. Determine active mode (Groq or Native STT)
-      const netState = await NetInfo.fetch()
-      const isOnline = netState.isConnected ?? false
+      // Use cached NetInfo (updated by listener) — never blocks on async fetch
+      const isOnline = netStateRef.current.isConnected
       const hasApiKey = !!process.env.EXPO_PUBLIC_GROQ_API_KEY
 
       const selectedMode = isOnline && hasApiKey ? 'groq' : 'native'
@@ -165,38 +182,37 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
       transcriptRef.current = ''
 
       if (selectedMode === 'groq') {
-        // Groq Whisper Mode
-        const perm = await requestRecordingPermissionsAsync()
-        if (!perm.granted) {
-          setIsActivating(false)
-          Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
-          return false
+        // Only request permission if not already granted by preWarmRecorder
+        if (!permGrantedRef.current) {
+          const perm = await requestRecordingPermissionsAsync()
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
+            return false
+          }
+          permGrantedRef.current = true
         }
 
-        // Only prepare if not already pre-warmed
         if (!isPreparedRef.current) {
           try {
             await audioRecorder.prepareToRecordAsync()
             isPreparedRef.current = true
-          } catch (prepErr) {
-            // Already prepared fallback
+          } catch {
+            // Already prepared — safe to proceed
             isPreparedRef.current = true
           }
         }
 
         audioRecorder.record()
-        
-        // --- CRITICAL CORRECTION: Set recording status to true ONLY after hardware confirmation ---
         setIsRecording(true)
-        setIsActivating(false)
         return true
       } else {
-        // Native STT Fallback Mode
-        const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
-        if (!perm.granted) {
-          setIsActivating(false)
-          Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
-          return false
+        if (!nativePermGrantedRef.current) {
+          const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
+            return false
+          }
+          nativePermGrantedRef.current = true
         }
 
         ExpoSpeechRecognitionModule.start({
@@ -207,14 +223,10 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
           addsPunctuation: true,
           iosTaskHint: 'dictation',
         })
-        
-        // --- CRITICAL CORRECTION: Set recording status to true ONLY after hardware confirmation ---
         setIsRecording(true)
-        setIsActivating(false)
         return true
       }
     } catch (e) {
-      setIsActivating(false)
       console.error('Failed to start recording:', e)
       Alert.alert('Error', 'Could not start voice input')
       return false
@@ -288,7 +300,6 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   return {
     isRecording,
     isTranscribing,
-    isActivating,
     mode,
     metering: recorderState.metering,
     startRecording,
