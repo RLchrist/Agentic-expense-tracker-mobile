@@ -280,7 +280,7 @@ export default function DashboardScreen({ navigation }: any) {
         <View className="px-6 mb-4 z-10">
           {showActionMenu && (
             <View 
-              className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
+              className="absolute top-14 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
             >
               <TouchableOpacity 
                 className="flex-row items-center p-4 gap-4"

@@ -19,6 +19,7 @@ import { Expense } from '../../types'
 import { Skeleton } from '../../components/common/Skeleton'
 import OfflineBanner from '../../components/common/OfflineBanner'
 import { useNetworkStatus } from '../../hooks/useNetworkStatus'
+import Swipeable from 'react-native-gesture-handler/Swipeable'
 import { formatCurrency } from '../../utils'
 
 export default function ExpensesScreen({ navigation }: any) {
@@ -166,7 +167,7 @@ export default function ExpensesScreen({ navigation }: any) {
       <View className="px-6 mb-3 z-10">
         {showActionMenu && (
           <View 
-            className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
+            className="absolute top-14 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
           >
             <TouchableOpacity 
               className="flex-row items-center p-4 gap-4"
@@ -177,6 +178,17 @@ export default function ExpensesScreen({ navigation }: any) {
             >
               <Plus size={20} className="text-white" />
               <Text className="text-white text-[15px] font-medium">Manual Add</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              className="flex-row items-center p-4 gap-4 border-t border-white/10"
+              onPress={() => {
+                setShowActionMenu(false)
+                openCamera()
+              }}
+            >
+              <Camera size={20} className="text-white" />
+              <Text className="text-white text-[15px] font-medium">Camera</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -227,9 +239,6 @@ export default function ExpensesScreen({ navigation }: any) {
             />
              
             <View className="flex-row gap-4 px-2">
-              <TouchableOpacity onPress={openCamera}>
-                <Camera size={20} className="text-textSecondary" />
-              </TouchableOpacity>
               {!isOffline && (
                 <TouchableOpacity 
                   className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
