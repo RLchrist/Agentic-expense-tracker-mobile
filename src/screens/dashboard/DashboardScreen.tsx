@@ -37,15 +37,7 @@ export default function DashboardScreen({ navigation }: any) {
   const { profile, signOut } = useAuthStore()
   const { isOffline } = useNetworkStatus()
   
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [showDropdown, setShowDropdown] = useState(false)
-
-  useEffect(() => {
-    const clockTimer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    return () => clearInterval(clockTimer)
-  }, [])
 
   const {
     expenses, isLoading,
@@ -222,17 +214,6 @@ export default function DashboardScreen({ navigation }: any) {
   const { width: screenWidth } = Dimensions.get('window')
   const cardWidth = screenWidth - 48
 
-  const formattedLiveDateTime = currentTime.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  }) + ' • ' + currentTime.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  })
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       <OfflineBanner />
@@ -247,13 +228,11 @@ export default function DashboardScreen({ navigation }: any) {
         }
       >
         {/* Header */}
-        <View className="flex-row justify-between items-start px-6 pt-4 pb-2 z-50">
+        <View className="flex-row justify-between items-start px-6 pt-4 pb-8 z-50">
           <View>
             <Text className="text-[13px] text-textSecondary font-medium">Good day 👋</Text>
             <Text className="text-xl font-bold text-text mt-[2px]">{profile?.full_name ?? 'User'}</Text>
-            <Text className="text-[11px] text-textSecondary mt-1.5 font-medium bg-surface px-2.5 py-1 rounded-full border border-border self-start">
-              🕒 {formattedLiveDateTime}
-            </Text>
+
           </View>
           <View className="flex-row items-center gap-2 relative">
             <TouchableOpacity 
@@ -298,7 +277,7 @@ export default function DashboardScreen({ navigation }: any) {
 
 
 
-        <View className="px-6 mb-3 z-10">
+        <View className="px-6 mb-4 z-10">
           {showActionMenu && (
             <View 
               className="absolute bottom-20 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
@@ -414,7 +393,7 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
         </View>
 
-        <View className="mb-6 items-center">
+        <View className="mb-4 items-center">
           <TouchableOpacity 
             className="flex-row items-center justify-center bg-surface py-2 px-6 rounded-full border border-border shadow-sm"
             onPress={() => navigation.navigate('SplitExpense')}
