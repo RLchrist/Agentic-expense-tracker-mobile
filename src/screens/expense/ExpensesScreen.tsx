@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { 
   Plus, Search, X, Trash2, List, FileText, Pencil, 
-  Camera, Mic, Square, ArrowRight, Image as ImageIcon 
+  Camera, Mic, Square, ArrowRight, ChevronDown, Image as ImageIcon 
 } from 'lucide-react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
@@ -28,7 +28,7 @@ export default function ExpensesScreen({ navigation }: any) {
   const { isOffline } = useNetworkStatus()
   const { expenses, isLoading, fetchExpenses, deleteExpense, fetchCategories } = useExpenseStore()
   const [search, setSearch] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'today' | 'week' | 'month'>('today')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   // AI & Speech States
@@ -37,6 +37,8 @@ export default function ExpensesScreen({ navigation }: any) {
   const [isParsing, setIsParsing] = useState(false)
   const [attachedImages, setAttachedImages] = useState<string[]>([])
   const [showActionMenu, setShowActionMenu] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParsedExpense | null>(null)
   const { isRecording, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder()
 
@@ -149,22 +151,49 @@ export default function ExpensesScreen({ navigation }: any) {
   const totalFiltered = filtered.reduce((sum, e) => sum + Number(e.amount), 0)
 
   const FILTERS = [
-    { key: 'all', label: 'All' },
     { key: 'today', label: 'Today' },
     { key: 'week', label: 'Week' },
     { key: 'month', label: 'Month' },
+    { key: 'all', label: 'All' },
   ]
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <OfflineBanner />
       {/* Header */}
-      <View className="flex-row justify-between items-center p-6 pb-2">
-        <Text className="text-[26px] font-bold text-text">Expenses</Text>
+      <View className="flex-row justify-between items-center p-6 pb-6">
+        {showSearch ? (
+          <View className="flex-1 flex-row items-center bg-surface rounded-xl px-4 border border-border">
+            <Search size={16} className="text-textSecondary mr-2" />
+            <TextInput
+              className="flex-1 text-text text-[15px] py-2"
+              placeholder="Search expenses..."
+              placeholderTextColor={colors.textSecondary}
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <X size={18} className="text-textSecondary" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => { setShowSearch(false); setSearch('') }} className="ml-2">
+              <Text className="text-primary text-[15px] font-medium">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <Text className="text-[26px] font-bold text-text">Expenses</Text>
+            <TouchableOpacity onPress={() => setShowSearch(true)}>
+              <Search size={22} className="text-textSecondary" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* AI Voice/Photo/Text Input Bar */}
-      <View className="px-6 mb-3 z-10">
+      <View className="px-6 mb-6 z-10">
         {showActionMenu && (
           <View 
             className="absolute top-14 left-6 bg-[#1E1E1E] rounded-2xl w-[200px] p-1 shadow-xl z-50 border border-white/10"
@@ -266,25 +295,10 @@ export default function ExpensesScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Search */}
-      <View className="flex-row items-center bg-surface rounded-xl mx-6 mb-2 px-4 border border-border">
-        <Search size={16} className="text-textSecondary mr-2" />
-        <TextInput
-          className="flex-1 text-text text-[15px] py-2"
-          placeholder="Search expenses..."
-          placeholderTextColor={colors.textSecondary}
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <X size={18} className="text-textSecondary" />
-          </TouchableOpacity>
-        )}
-      </View>
+
 
       {/* Filter chips */}
-      <View className="flex-row gap-2 px-6 mb-2">
+      <View className="flex-row gap-2 px-6 mb-4">
         {FILTERS.map((f) => (
           <TouchableOpacity
             key={f.key}
@@ -299,29 +313,45 @@ export default function ExpensesScreen({ navigation }: any) {
       </View>
 
       {/* Category Filter */}
-      <View className="mb-2">
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={[{ id: null, name: 'All Categories', icon: '' }, ...useExpenseStore.getState().categories]}
-          keyExtractor={(item) => item.id ?? 'all'}
-          contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              className={`flex-row items-center px-4 py-1.5 rounded-full border ${selectedCategory === item.id ? 'bg-primary border-primary' : 'bg-surface border-border'}`}
-              onPress={() => setSelectedCategory(item.id)}
-            >
-              {item.icon ? (
-                <Text className="mr-1.5 text-base">{item.icon}</Text>
-              ) : (
-                <List size={14} color={selectedCategory === item.id ? colors.white : colors.textSecondary} className="mr-1.5" />
-              )}
-              <Text className={`text-[13px] font-medium ${selectedCategory === item.id ? 'text-white' : 'text-textSecondary'}`}>
-                {item.name}
-              </Text>
-            </TouchableOpacity>
+      <View className="px-6 mb-4 z-20">
+        <View className="relative">
+          <TouchableOpacity
+            className="flex-row items-center justify-between bg-surface border border-border rounded-xl px-4 py-3"
+            onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+          >
+            <View className="flex-row items-center gap-2">
+              {(() => {
+                const cat = useExpenseStore.getState().categories.find(c => c.id === selectedCategory)
+                return cat ? (
+                  <>
+                    <Text className="text-base">{cat.icon}</Text>
+                    <Text className="text-text text-[14px] font-medium">{cat.name}</Text>
+                  </>
+                ) : (
+                  <Text className="text-text text-[14px] font-medium">All Categories</Text>
+                )
+              })()}
+            </View>
+            <ChevronDown size={18} className="text-textSecondary" />
+          </TouchableOpacity>
+
+          {showCategoryDropdown && (
+            <View className="absolute top-14 left-0 right-0 bg-[#1E1E1E] rounded-xl border border-white/10 shadow-xl z-50">
+              {[{ id: null, name: 'All Categories', icon: '' }, ...useExpenseStore.getState().categories].map((item) => (
+                <TouchableOpacity
+                  key={item.id ?? 'all'}
+                  className={`flex-row items-center px-4 py-3 gap-3 ${selectedCategory === item.id ? 'bg-primary/20' : ''}`}
+                  onPress={() => { setSelectedCategory(item.id); setShowCategoryDropdown(false) }}
+                >
+                  {item.icon ? <Text className="text-base">{item.icon}</Text> : null}
+                  <Text className={`text-[14px] ${selectedCategory === item.id ? 'text-primary font-semibold' : 'text-text'}`}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
-        />
+        </View>
       </View>
 
       {/* Summary bar */}
