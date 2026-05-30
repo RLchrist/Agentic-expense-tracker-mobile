@@ -5,6 +5,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Comprehensive bilingual prompt covering diverse expense verbs and items.
+const WHISPER_PROMPT =
+  'Spent 50 rupees on snacks. Purchased 5 liters of petrol at 120 rupees per liter. ' +
+  'Bought vegetables for 200. Paid 1500 for electricity bill. Had lunch for 350 rupees. ' +
+  'Ordered coffee for 80. Got a haircut for 150 rupees. Took a cab for 250. ' +
+  'म:म खाएको २०० रुपैयाँ। तरकारी किनेको ५०। बस भाडा ३५ रुपैयाँ। कोठा भाडा तिरेको १००००।'
+
+/**
+ * Detects mixed-script anomalies where Whisper phonetically transliterates
+ * English words into Devanagari script (e.g. "पुर्चाइब" for "purchased").
+ */
+function analyzeTranscript(text: string): { shouldRetryAsEnglish: boolean; devanagariRatio: number; latinRatio: number } {
+  let devanagariCount = 0
+  let latinCount = 0
+  for (const char of text) {
+    const code = char.charCodeAt(0)
+    if (code >= 0x0900 && code <= 0x097F) devanagariCount++
+    if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) latinCount++
+  }
+  const total = devanagariCount + latinCount
+  if (total === 0) return { shouldRetryAsEnglish: false, devanagariRatio: 0, latinRatio: 0 }
+  const devanagariRatio = devanagariCount / total
+  const latinRatio = latinCount / total
+  const shouldRetryAsEnglish = latinRatio > 0.5 && devanagariRatio > 0.03 && devanagariRatio < 0.4
+  return { shouldRetryAsEnglish, devanagariRatio, latinRatio }
+}
+
 async function parseWithGemini(prompt: string, images: string[], apiKey: string): Promise<any> {
   const parts: any[] = [{ text: prompt }]
   
@@ -102,31 +129,56 @@ Deno.serve(async (req) => {
         bytes[i] = binaryString.charCodeAt(i)
       }
 
-      // Send to Groq Whisper transcription API
-      const formData = new FormData()
-      const blob = new Blob([bytes], { type: 'audio/wav' })
-      formData.append('file', blob, 'recording.wav')
-      formData.append('model', 'whisper-large-v3-turbo')
-      formData.append('response_format', 'json')
-      formData.append('prompt', 'Spent 35 rupees on bus fare, milk 100 rupees, lunch 500, room rent 10000. म:म खाएको २०० रुपैयाँ, तरकारी किनेको ५० रुपैयाँ, बस भाडा ३५ रुपैयाँ, कोठा भाडा १०००० रुपैयाँ।')
+      // Helper to call Whisper with optional forced language
+      const callWhisper = async (forcedLang?: string) => {
+        const fd = new FormData()
+        const blob = new Blob([bytes], { type: 'audio/wav' })
+        fd.append('file', blob, 'recording.wav')
+        fd.append('model', 'whisper-large-v3-turbo')
+        fd.append('response_format', 'json')
+        fd.append('prompt', WHISPER_PROMPT)
+        if (forcedLang) fd.append('language', forcedLang)
 
-      const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqKey}` },
-        body: formData,
-      })
+        const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${groqKey}` },
+          body: fd,
+        })
+        if (!res.ok) {
+          const errText = await res.text()
+          throw new Error(`Whisper API ${res.status}: ${errText}`)
+        }
+        const data = await res.json()
+        return data.text || ''
+      }
 
-      if (!whisperRes.ok) {
-        const errText = await whisperRes.text()
-        console.error('Groq Whisper error:', whisperRes.status, errText)
+      // --- Layer 1: Transcribe with auto-detect + comprehensive prompt ---
+      let transcribedText = ''
+      try {
+        transcribedText = await callWhisper()
+      } catch (err) {
+        console.error('Groq Whisper error:', err)
         return new Response(
-          JSON.stringify({ success: false, error: 'Transcription failed', details: errText }),
+          JSON.stringify({ success: false, error: 'Transcription failed', details: String(err) }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const whisperData = await whisperRes.json()
-      text = whisperData.text || ''
+      // --- Layer 2: Script anomaly detection + conditional retry ---
+      if (transcribedText) {
+        const analysis = analyzeTranscript(transcribedText)
+        if (analysis.shouldRetryAsEnglish) {
+          console.log(`[parse-expense] Mixed-script anomaly (Dev: ${(analysis.devanagariRatio * 100).toFixed(1)}%, Lat: ${(analysis.latinRatio * 100).toFixed(1)}%). Retrying with language=en...`)
+          try {
+            const retryText = await callWhisper('en')
+            if (retryText) transcribedText = retryText
+          } catch (retryErr) {
+            console.warn('[parse-expense] English retry failed, using original:', retryErr)
+          }
+        }
+      }
+
+      text = transcribedText
       console.log('Voice transcription:', text)
 
       if (!text) {

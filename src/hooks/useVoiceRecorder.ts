@@ -11,11 +11,23 @@ import {
   requestRecordingPermissionsAsync,
   useAudioRecorderState,
 } from 'expo-audio'
+import { analyzeTranscript } from '../utils/transcriptAnalyzer'
 
 interface UseVoiceRecorderOptions {
   /** Called immediately on every interim/final result — bypasses React state for zero-lag updates */
   onTranscript?: (text: string) => void
 }
+
+// Comprehensive bilingual prompt covering diverse expense verbs and items.
+// English section: covers spent, purchased, bought, paid, had, ordered, got, took — all common synonyms.
+// Nepali section: covers खर्च गरेँ (spent), किनेको (bought), तिरेको (paid), खाएको (ate/had).
+// Whisper uses this as "fake previous context" to prime the decoder's language and vocabulary.
+// Max 224 tokens — this prompt is ~80 tokens, well within limits.
+const WHISPER_PROMPT =
+  'Spent 50 rupees on snacks. Purchased 5 liters of petrol at 120 rupees per liter. ' +
+  'Bought vegetables for 200. Paid 1500 for electricity bill. Had lunch for 350 rupees. ' +
+  'Ordered coffee for 80. Got a haircut for 150 rupees. Took a cab for 250. ' +
+  'म:म खाएको २०० रुपैयाँ। तरकारी किनेको ५०। बस भाडा ३५ रुपैयाँ। कोठा भाडा तिरेको १००००।'
 
 export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   const [isRecording, setIsRecording] = useState(false)
@@ -26,6 +38,7 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   const transcriptRef = useRef('')
   const endResolveRef = useRef<((value: string | null) => void) | null>(null)
   const activeModeRef = useRef<'groq' | 'native'>('native')
+  const isPreparedRef = useRef(false)
 
   // Initialize the high-quality audio recorder for Groq Whisper with hardware metering enabled
   const audioRecorder = useAudioRecorder({
@@ -79,7 +92,67 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
     console.error('Speech error:', event.error, event.message)
   })
 
+  /**
+   * Calls the Groq Whisper API with the given parameters.
+   * Extracted as a helper so the retry path can reuse it with `language: 'en'`.
+   */
+  const callWhisperAPI = async (
+    fileUri: string,
+    apiKey: string,
+    forcedLanguage?: string
+  ): Promise<string | null> => {
+    const formData = new FormData()
+    formData.append('file', {
+      uri: fileUri,
+      name: 'recording.m4a',
+      type: 'audio/m4a',
+    } as any)
+    formData.append('model', 'whisper-large-v3-turbo')
+    formData.append('prompt', WHISPER_PROMPT)
+    if (forcedLanguage) {
+      formData.append('language', forcedLanguage)
+    }
+
+    const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Groq transcription error:', errorText)
+      throw new Error(`Groq API returned status ${response.status}`)
+    }
+
+    const result = await response.json()
+    return result.text || null
+  }
+
+  const [isActivating, setIsActivating] = useState(false)
+
+  /**
+   * Pre-warms microphone permissions and pre-initializes recording hardware
+   * to eliminate critical-path startup delays when the user eventually taps the mic.
+   */
+  const preWarmRecorder = useCallback(async () => {
+    try {
+      if (isPreparedRef.current) return
+      const perm = await requestRecordingPermissionsAsync()
+      if (perm.granted) {
+        await audioRecorder.prepareToRecordAsync()
+        isPreparedRef.current = true
+      }
+    } catch (e) {
+      console.warn('[VoiceRecorder] Pre-warming audio hardware silent fail:', e)
+    }
+  }, [audioRecorder])
+
   const startRecording = useCallback(async () => {
+    setIsActivating(true)
     try {
       // 1. Determine active mode (Groq or Native STT)
       const netState = await NetInfo.fetch()
@@ -95,23 +168,37 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
         // Groq Whisper Mode
         const perm = await requestRecordingPermissionsAsync()
         if (!perm.granted) {
+          setIsActivating(false)
           Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
           return false
         }
 
-        await audioRecorder.prepareToRecordAsync()
+        // Only prepare if not already pre-warmed
+        if (!isPreparedRef.current) {
+          try {
+            await audioRecorder.prepareToRecordAsync()
+            isPreparedRef.current = true
+          } catch (prepErr) {
+            // Already prepared fallback
+            isPreparedRef.current = true
+          }
+        }
+
         audioRecorder.record()
+        
+        // --- CRITICAL CORRECTION: Set recording status to true ONLY after hardware confirmation ---
         setIsRecording(true)
+        setIsActivating(false)
         return true
       } else {
         // Native STT Fallback Mode
         const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
         if (!perm.granted) {
+          setIsActivating(false)
           Alert.alert('Permission Denied', 'Microphone permission is required for voice input.')
           return false
         }
 
-        setIsRecording(true)
         ExpoSpeechRecognitionModule.start({
           lang: 'en-US',
           interimResults: true,
@@ -120,9 +207,14 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
           addsPunctuation: true,
           iosTaskHint: 'dictation',
         })
+        
+        // --- CRITICAL CORRECTION: Set recording status to true ONLY after hardware confirmation ---
+        setIsRecording(true)
+        setIsActivating(false)
         return true
       }
     } catch (e) {
+      setIsActivating(false)
       console.error('Failed to start recording:', e)
       Alert.alert('Error', 'Could not start voice input')
       return false
@@ -135,6 +227,7 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
       try {
         setIsRecording(false)
         await audioRecorder.stop()
+        isPreparedRef.current = false
         const fileUri = audioRecorder.uri
 
         if (!fileUri) {
@@ -143,37 +236,33 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
 
         setIsTranscribing(true)
 
-        // Upload recorded file to Groq Whisper Large-v3-Turbo
-        const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY
-        const formData = new FormData()
-        formData.append('file', {
-          uri: fileUri,
-          name: 'recording.m4a',
-          type: 'audio/m4a',
-        } as any)
-        formData.append('model', 'whisper-large-v3-turbo')
-        // Feed Whisper a bilingual contextual prompt of typical Nepali/English expenses to ensure perfect spelling, formatting, and language disambiguation
-        formData.append('prompt', 'Spent 35 rupees on bus fare, milk 100 rupees, lunch 500, room rent 10000. म:म खाएको २०० रुपैयाँ, तरकारी किनेको ५० रुपैयाँ, बस भाडा ३५ रुपैयाँ, कोठा भाडा १०००० रुपैयाँ।')
+        const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY!
 
-        const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            Accept: 'application/json',
-          },
-          body: formData,
-        })
+        // --- Layer 1: Transcribe with auto-detect + comprehensive prompt ---
+        let transcript = await callWhisperAPI(fileUri, apiKey)
 
-        setIsTranscribing(false)
+        // --- Layer 2: Script anomaly detection + conditional retry ---
+        if (transcript) {
+          const analysis = analyzeTranscript(transcript)
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Groq transcription error response:', errorText)
-          throw new Error(`Groq API returned status ${response.status}`)
+          if (analysis.shouldRetryAsEnglish) {
+            console.log(
+              `[VoiceRecorder] Mixed-script anomaly detected (Devanagari: ${(analysis.devanagariRatio * 100).toFixed(1)}%, Latin: ${(analysis.latinRatio * 100).toFixed(1)}%). Retrying with language=en...`
+            )
+            try {
+              const retryTranscript = await callWhisperAPI(fileUri, apiKey, 'en')
+              if (retryTranscript) {
+                transcript = retryTranscript
+              }
+            } catch (retryErr) {
+              // If retry fails, use the original transcript — better than nothing
+              console.warn('[VoiceRecorder] English retry failed, using original:', retryErr)
+            }
+          }
         }
 
-        const result = await response.json()
-        return result.text || null
+        setIsTranscribing(false)
+        return transcript
       } catch (err) {
         setIsTranscribing(false)
         console.error('Groq Whisper transcription failed:', err)
@@ -199,9 +288,11 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   return {
     isRecording,
     isTranscribing,
+    isActivating,
     mode,
     metering: recorderState.metering,
     startRecording,
     stopRecording,
+    preWarmRecorder,
   }
 }

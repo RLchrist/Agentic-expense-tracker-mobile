@@ -55,9 +55,14 @@ export default function DashboardScreen({ navigation }: any) {
   const { budgets, fetchBudgets } = useBudgetStore()
 
   // Direct callback — fires from native event with zero intermediate renders
-  const { isRecording, isTranscribing, mode, metering, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder({
+  const { isRecording, isTranscribing, isActivating, mode, metering, startRecording: triggerStartRecording, stopRecording: triggerStopRecording, preWarmRecorder } = useVoiceRecorder({
     onTranscript: (text) => setInputText(text),
   })
+
+  // Pre-warm the recording hardware when the dashboard mounts to eliminate tap latency
+  useEffect(() => {
+    preWarmRecorder()
+  }, [preWarmRecorder])
 
   const startVoiceInput = async () => {
     if (isRecording || isTranscribing) return
@@ -370,7 +375,12 @@ export default function DashboardScreen({ navigation }: any) {
                 <Plus size={24} className="text-text" />
               </TouchableOpacity>
               
-              {isRecording ? (
+              {isActivating ? (
+                <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text className="text-textSecondary text-[14px] font-semibold ml-2">Warming up mic...</Text>
+                </View>
+              ) : isRecording ? (
                 <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
                   <AudioWaveformVisualizer metering={metering} isRecording={isRecording} mode={mode} color={colors.primary} />
                   <Text className="text-textSecondary text-[14px] font-semibold ml-2 animate-pulse">Listening...</Text>
@@ -394,12 +404,12 @@ export default function DashboardScreen({ navigation }: any) {
 
               <View className="flex-row gap-4 px-2">
                   <TouchableOpacity 
-                    className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
+                    className={(isRecording || isActivating) ? "bg-error/15 rounded-[15px] p-0.5" : ""}
                     onPress={isRecording ? stopVoiceInput : startVoiceInput}
-                    disabled={isTranscribing}
-                    style={{ opacity: isTranscribing ? 0.5 : 1 }}
+                    disabled={isTranscribing || isActivating}
+                    style={{ opacity: (isTranscribing || isActivating) ? 0.5 : 1 }}
                   >
-                    {isRecording ? (
+                    {(isRecording || isActivating) ? (
                       <Square size={24} className="text-error" />
                     ) : (
                       <Mic size={24} className="text-textSecondary" />

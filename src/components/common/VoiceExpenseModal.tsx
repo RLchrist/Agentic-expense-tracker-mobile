@@ -27,7 +27,7 @@ interface Props {
   initialParsed?: ParsedExpense | null
 }
 
-type Stage = 'idle' | 'recording' | 'parsing' | 'preview' | 'saving'
+type Stage = 'idle' | 'activating' | 'recording' | 'parsing' | 'preview' | 'saving'
 
 export default function VoiceExpenseModal({ visible, onClose, onSaved, initialParsed }: Props) {
   const { colors } = useAppTheme()
@@ -39,7 +39,14 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
   const sheetHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current
   const [isFullPage, setIsFullPage] = useState(false)
 
-  const { isRecording, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder()
+  const { isRecording, isActivating, startRecording: triggerStartRecording, stopRecording: triggerStopRecording, preWarmRecorder } = useVoiceRecorder()
+
+  // Pre-warm mic when the modal opens to minimize spin-up delay
+  useEffect(() => {
+    if (visible) {
+      preWarmRecorder()
+    }
+  }, [visible, preWarmRecorder])
 
   useEffect(() => {
     if (initialParsed) {
@@ -116,14 +123,21 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
       Alert.alert('Voice Unavailable', 'Voice input is not available in offline mode.')
       return
     }
+    // Set stage to activating to warn user we are warming up the mic hardware
+    setStage('activating')
     try {
       const success = await triggerStartRecording()
       if (success) {
         setStage('recording')
         startPulse()
+      } else {
+        setStage('idle')
+        stopPulse()
       }
     } catch (e) {
       console.error('Failed to start recording', e)
+      setStage('idle')
+      stopPulse()
       Alert.alert('Error', 'Could not start recording')
     }
   }
@@ -256,9 +270,12 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
                   <TouchableOpacity
                     className={`w-[60px] h-[60px] rounded-full bg-primary justify-center items-center ${stage === 'recording' ? 'bg-error' : ''}`}
                     onPress={stage === 'recording' ? stopRecording : startRecording}
-                    disabled={stage === 'parsing'}
+                    disabled={stage === 'parsing' || stage === 'activating'}
+                    style={{ opacity: (stage === 'parsing' || stage === 'activating') ? 0.6 : 1 }}
                   >
-                    {stage === 'recording' ? (
+                    {stage === 'activating' ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : stage === 'recording' ? (
                       <Square size={30} className="text-white" />
                     ) : (
                       <Mic size={30} className="text-white" />
@@ -268,6 +285,7 @@ export default function VoiceExpenseModal({ visible, onClose, onSaved, initialPa
 
                 <Text className="text-textSecondary mt-4 text-center">
                   {stage === 'idle' && 'Tap mic and say your expense'}
+                  {stage === 'activating' && '🔌 Warming up microphone...'}
                   {stage === 'recording' && '🔴 Recording... tap to stop'}
                   {stage === 'parsing' && '✨ AI is parsing...'}
                 </Text>
