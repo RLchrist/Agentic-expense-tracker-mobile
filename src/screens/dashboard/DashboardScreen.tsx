@@ -298,17 +298,6 @@ export default function DashboardScreen({ navigation }: any) {
 
 
 
-        {/* Interactive Monthly Bar Chart */}
-        {!isLoading && (
-          <InteractiveMonthlyBarChart 
-            expenses={expenses}
-            currency={profile?.currency ?? 'NPR'}
-            colors={colors}
-            budget={thisMonthBudget}
-            monthTotal={monthTotal}
-          />
-        )}
-
         <View className="px-6 mb-3 z-10">
           {showActionMenu && (
             <View 
@@ -434,6 +423,17 @@ export default function DashboardScreen({ navigation }: any) {
             <Text className="text-text font-semibold text-[14px]">Split Group Expense</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Interactive Monthly Bar Chart */}
+        {!isLoading && (
+          <InteractiveMonthlyBarChart 
+            expenses={expenses}
+            currency={profile?.currency ?? 'NPR'}
+            colors={colors}
+            budget={thisMonthBudget}
+            monthTotal={monthTotal}
+          />
+        )}
 
         <View className="flex-row justify-between items-center px-6 mb-4">
           <Text className="text-text text-lg font-bold">Recent Transactions</Text>
