@@ -9,6 +9,7 @@ import {
   useAudioRecorder,
   RecordingPresets,
   requestRecordingPermissionsAsync,
+  useAudioRecorderState,
 } from 'expo-audio'
 
 interface UseVoiceRecorderOptions {
@@ -26,8 +27,14 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
   const endResolveRef = useRef<((value: string | null) => void) | null>(null)
   const activeModeRef = useRef<'groq' | 'native'>('native')
 
-  // Initialize the high-quality audio recorder for Groq Whisper
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
+  // Initialize the high-quality audio recorder for Groq Whisper with hardware metering enabled
+  const audioRecorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  })
+
+  // Poll state every 100ms for high-frequency waveform updates
+  const recorderState = useAudioRecorderState(audioRecorder, 100)
 
   // Direct callback invocation for native STT — no intermediate state, zero extra renders
   const onTranscriptRef = useRef(options?.onTranscript)
@@ -146,7 +153,7 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
         } as any)
         formData.append('model', 'whisper-large-v3-turbo')
         // Feed Whisper a bilingual contextual prompt of typical Nepali/English expenses to ensure perfect spelling, formatting, and language disambiguation
-        formData.append('prompt', 'खर्च ट्रयाकर: म:म २०० रुपैयाँ, milk 100 rupees, lunch ५०० रुपैयाँ, तरकारी किनेको, bus fare, room rent १०००० रुपैयाँ')
+        formData.append('prompt', 'Spent 35 rupees on bus fare, milk 100 rupees, lunch 500, room rent 10000. म:म खाएको २०० रुपैयाँ, तरकारी किनेको ५० रुपैयाँ, बस भाडा ३५ रुपैयाँ, कोठा भाडा १०००० रुपैयाँ।')
 
         const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
           method: 'POST',
@@ -193,6 +200,7 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
     isRecording,
     isTranscribing,
     mode,
+    metering: recorderState.metering,
     startRecording,
     stopRecording,
   }

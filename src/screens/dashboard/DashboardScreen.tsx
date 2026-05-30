@@ -55,7 +55,7 @@ export default function DashboardScreen({ navigation }: any) {
   const { budgets, fetchBudgets } = useBudgetStore()
 
   // Direct callback — fires from native event with zero intermediate renders
-  const { isRecording, isTranscribing, mode, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder({
+  const { isRecording, isTranscribing, mode, metering, startRecording: triggerStartRecording, stopRecording: triggerStopRecording } = useVoiceRecorder({
     onTranscript: (text) => setInputText(text),
   })
 
@@ -370,10 +370,10 @@ export default function DashboardScreen({ navigation }: any) {
                 <Plus size={24} className="text-text" />
               </TouchableOpacity>
               
-              {isRecording && mode === 'groq' ? (
+              {isRecording ? (
                 <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
-                  <PulsingOrb color={colors.primary} />
-                  <Text className="text-textSecondary text-[14px] font-semibold ml-2">Listening...</Text>
+                  <AudioWaveformVisualizer metering={metering} isRecording={isRecording} mode={mode} color={colors.primary} />
+                  <Text className="text-textSecondary text-[14px] font-semibold ml-2 animate-pulse">Listening...</Text>
                 </View>
               ) : isTranscribing ? (
                 <View className="flex-1 flex-row items-center justify-center gap-2 px-4 h-[44px]">
@@ -393,20 +393,18 @@ export default function DashboardScreen({ navigation }: any) {
                
 
               <View className="flex-row gap-4 px-2">
-                {isTranscribing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
                   <TouchableOpacity 
                     className={isRecording ? "bg-error/15 rounded-[15px] p-0.5" : ""}
                     onPress={isRecording ? stopVoiceInput : startVoiceInput}
+                    disabled={isTranscribing}
+                    style={{ opacity: isTranscribing ? 0.5 : 1 }}
                   >
                     {isRecording ? (
-                      <Square size={20} className="text-error" />
+                      <Square size={24} className="text-error" />
                     ) : (
-                      <Mic size={20} className="text-textSecondary" />
+                      <Mic size={24} className="text-textSecondary" />
                     )}
                   </TouchableOpacity>
-                )}
               </View>
 
               {(inputText.trim() !== '' || attachedImages.length > 0) && !isRecording && !isTranscribing && (
@@ -722,57 +720,98 @@ function ExpenseItem({ expense, onDelete, onEdit }: { expense: Expense; onDelete
   )
 }
 
-function PulsingOrb({ color }: { color: string }) {
-  const scale = useRef(new Animated.Value(1)).current
-  const opacity = useRef(new Animated.Value(0.6)).current
+function AudioWaveformVisualizer({ 
+  metering = -160, 
+  isRecording, 
+  mode,
+  color 
+}: { 
+  metering?: number
+  isRecording: boolean
+  mode: 'groq' | 'native'
+  color: string 
+}) {
+  const anims = useRef([
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+  ]).current
+
+  // Map metering decibel to a scale (0 to 1)
+  // decibels: -160 to 0. Silence is typically -60 or below.
+  const db = metering ?? -160
+  let level = 0
+  if (db > -60) {
+    level = (db + 60) / 60 // Normalize -60..0 to 0..1
+  }
+  level = Math.max(0, Math.min(1, level))
 
   useEffect(() => {
-    Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(scale, {
-            toValue: 1.6,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scale, {
-            toValue: 1,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(opacity, {
-            toValue: 0.2,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 0.6,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start()
-  }, [scale, opacity])
+    if (!isRecording) {
+      // Flatline
+      anims.forEach((anim) => {
+        Animated.spring(anim, {
+          toValue: 4,
+          useNativeDriver: false,
+          tension: 40,
+          friction: 7,
+        }).start()
+      })
+      return
+    }
+
+    if (mode === 'groq') {
+      // Real-time hardware volume metering updates
+      anims.forEach((anim, index) => {
+        // Different bars have slightly different sensitivity factors for organic visual style
+        const sensitivities = [0.6, 1.0, 1.2, 0.9, 0.5]
+        const factor = sensitivities[index] || 1.0
+        
+        // Target height goes up to 26px
+        const targetHeight = 4 + level * 22 * factor * (0.8 + Math.random() * 0.4)
+
+        Animated.timing(anim, {
+          toValue: targetHeight,
+          duration: 90,
+          useNativeDriver: false,
+        }).start()
+      })
+    } else {
+      // Offline native STT fallback uses an organic animated loop
+      let isCancelled = false
+      const cycle = () => {
+        if (isCancelled) return
+        anims.forEach((anim) => {
+          const targetHeight = 4 + Math.random() * 20
+          Animated.timing(anim, {
+            toValue: targetHeight,
+            duration: 120 + Math.random() * 100,
+            useNativeDriver: false,
+          }).start()
+        })
+        setTimeout(cycle, 150)
+      }
+      cycle()
+      return () => {
+        isCancelled = true
+      }
+    }
+  }, [metering, isRecording, mode])
 
   return (
-    <View className="justify-center items-center w-8 h-8">
-      {/* Outer Pulse */}
-      <Animated.View
-        style={{
-          transform: [{ scale }],
-          opacity,
-          backgroundColor: color,
-        }}
-        className="absolute w-4 h-4 rounded-full"
-      />
-      {/* Inner Solid Orb */}
-      <View
-        style={{ backgroundColor: color }}
-        className="w-3.5 h-3.5 rounded-full z-10"
-      />
+    <View className="flex-row justify-center items-center gap-1.5 h-[40px] px-2">
+      {anims.map((anim, idx) => (
+        <Animated.View
+          key={idx}
+          style={{
+            height: anim,
+            backgroundColor: color,
+          }}
+          className="w-1.5 rounded-full"
+        />
+      ))}
     </View>
   )
 }
