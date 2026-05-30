@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       formData.append('file', blob, 'recording.wav')
       formData.append('model', 'whisper-large-v3-turbo')
       formData.append('response_format', 'json')
-      formData.append('language', 'en')
+      formData.append('prompt', 'खर्च ट्रयाकर: म:म २०० रुपैयाँ, milk 100 rupees, lunch ५०० रुपैयाँ, तरकारी किनेको, bus fare, room rent १०००० रुपैयाँ')
 
       const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
         method: 'POST',

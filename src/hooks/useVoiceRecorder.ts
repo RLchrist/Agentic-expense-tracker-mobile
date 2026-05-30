@@ -145,8 +145,6 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions) {
           type: 'audio/m4a',
         } as any)
         formData.append('model', 'whisper-large-v3-turbo')
-        // Tell Whisper the primary spoken language is Nepali
-        formData.append('language', 'ne')
         // Feed Whisper a bilingual contextual prompt of typical Nepali/English expenses to ensure perfect spelling, formatting, and language disambiguation
         formData.append('prompt', 'खर्च ट्रयाकर: म:म २०० रुपैयाँ, milk 100 rupees, lunch ५०० रुपैयाँ, तरकारी किनेको, bus fare, room rent १०००० रुपैयाँ')
 
